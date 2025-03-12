@@ -154,7 +154,7 @@ f  = open(file_xyz ,"rt")
 nconf = 0
 ncondensed = 0
 ntype = len(atom_types)
-npair = ntype*(ntype+1)/2
+npair = ntype*(ntype+1)//2
 rmin_1 = [100.0]* npair
 
 Amatrix = np.array([])
@@ -182,7 +182,7 @@ while True:
             cell_xyz[2,:] = [float(x) for x in tmp[7:10]]
             energy = float(tmp[10])
             stress = 1000
-            print ("cell_xyz", cell_xyz)
+            #print ("cell_xyz", cell_xyz)
         elif len(tmp)==17:
             # format: ["NON_ORTHO", cell[0,:], cell[1,:], cell[2,:], sigma_xx/yy/zz/xy/yz/zx, energy]
             cell_xyz[0,:] = [float(x) for x in tmp[1:4]]

@@ -35,15 +35,17 @@ tmp = f.readline()
 atomNameList = tmp.split()
 print ("atomNameList=",atomNameList)
 tmp = f.readline().split()
-#atomNumList = tmp.split()
-#atomNumList = map(int, atomNumList)
 atomNumList = [int(x) for x in tmp]
 print ("atomNumList=",atomNumList)
 
 natom = sum(atomNumList)
 print ("natom=", natom)
  
-tmp = f.readline()
+tmp = f.readline().split()
+if tmp[0]=="Cartesian":
+    xyz_type = "C"
+if tmp[0]=="Direct":
+    xyz_type = "D"
 
 xyz = np.zeros(shape=(natom,3))
 for k in range(natom):
@@ -52,8 +54,9 @@ for k in range(natom):
     xyz[k,:] =  tmp[:3]
 f.close()
 
-#print (xyz)
-Axyz = np.dot(xyz, unitcell)
+if xyz_type == "D":
+    #print (xyz)
+    xyz = np.dot(xyz, unitcell)
 
 f2 = open('POSCAR2xyz.xyz', "w")
 f2.write("%-d\n" %(natom))
@@ -81,6 +84,6 @@ elif (option_cell==3):
 ixyz = 0
 for i in range(len(atomNameList)):
     for j in range(atomNumList[i]):
-        f2.write("%-s %15.9f %15.9f %15.9f\n" %(atomNameList[i], Axyz[ixyz,0], Axyz[ixyz,1], Axyz[ixyz,2] ))
+        f2.write("%-s %15.9f %15.9f %15.9f\n" %(atomNameList[i], xyz[ixyz,0], xyz[ixyz,1], xyz[ixyz,2] ))
         ixyz += 1
 f2.close()

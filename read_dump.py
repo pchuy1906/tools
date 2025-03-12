@@ -5,13 +5,11 @@ import argparse
 parser = argparse.ArgumentParser(description='split file xyz')
 # Arguments supported by the code.
 parser.add_argument("--file_dump",   default='file.dump', help='file with format dump lammps')
-parser.add_argument("--cell_type",   default='NON_ORTHO', help='cell_type (cell_3/cell_9/NON_ORTHO)')
 parser.add_argument('--atom_types', nargs='+')
 
 args    = parser.parse_args()
 file_dump     = args.file_dump
 atom_types    = args.atom_types
-cell_type     = args.cell_type
 
 print (atom_types) 
 
@@ -40,6 +38,7 @@ while True:
     if "xy" in tmp:
         #print ("NONORTHO")
 
+        cell_type = "cell_9"
         tmp = f.readline().split()
         [xlo_bound, xhi_bound, xy] = [float(x) for x in tmp]
 
@@ -61,6 +60,8 @@ while True:
         lz = zhi-zlo
 
     else:
+        cell_type = "cell_3"
+
         tmp = f.readline().split()
         #print (tmp)
         lx = float(tmp[1])-float(tmp[0])
