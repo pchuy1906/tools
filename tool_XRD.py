@@ -24,3 +24,5 @@ q = (4*pi/lam) * np.sin(twoThe/2.0)
 print (len(q))
 combined_array = np.column_stack((q,intensity))
 np.savetxt('BBB.dat', combined_array, delimiter=' ')
+
+
