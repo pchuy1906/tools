@@ -119,4 +119,3 @@ if (calc_type=="vcopt"):
     #print('final energy (kcal/mol)', e_kcalmol)
 
 
-
