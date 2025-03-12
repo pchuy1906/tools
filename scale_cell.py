@@ -42,7 +42,7 @@ import argparse
 parser = argparse.ArgumentParser(description='making the larger system')
 # Arguments supported by the code.
 parser.add_argument("--file_xyz",                default='file.xyz', help='file_XYZ format xyz')
-parser.add_argument("--option_cell", type=int,   default=1,          help='0-(box,xyz)   1-(box3:orthohombic cell)  2-(box9:general) 3-NONORTHO')
+parser.add_argument("--option_cell", type=int,   default=1,          help='1-(box3:orthohombic cell)  2-(box9:general) 3-NONORTHO')
 parser.add_argument("--f_scale",     type=float, default=1.0,        help='scale the cell parameters')
 parser.add_argument("--ixyz",        type=int,   default=0,          help='0-xyz 1-x 2-y 3-z')
 
@@ -52,52 +52,7 @@ option_cell  = args.option_cell
 f_scale      = args.f_scale
 ixyz         = args.ixyz
 
-
-def Cell_XYZ_ABC(cellXYZ):
-  a1= cellXYZ[0,:]
-  a2= cellXYZ[1,:]
-  a3= cellXYZ[2,:]
-  a = math.sqrt(dot(a1, a1))
-  b = math.sqrt(dot(a2, a2))
-  c = math.sqrt(dot(a3, a3))
-  alp = math.acos(dot(a2, a3)/(b*c))*180.0/pi
-  bet = math.acos(dot(a1, a3)/(a*c))*180.0/pi
-  gam = math.acos(dot(a1, a2)/(a*b))*180.0/pi
-  return np.array([a,b,c,alp,bet,gam])
-
-def Cell_ABC_XYZ(cellABC):
-  tmp = np.zeros(shape=(3,3))
-  tmp[0,0] = cellABC[0]
-  tmp[1,0] = cellABC[1]*cos(cellABC[5])
-  tmp[1,1] = cellABC[1]*sin(cellABC[5])
-  tmp[2,0] = cellABC[2]*cos(cellABC[4])
-  tmp[2,1] = cellABC[2]*cos(cellABC[3])*sin(cellABC[5])-((cellABC[2]*cos(cellABC[4])-cellABC[2]*cos(cellABC[3])*cos(cellABC[5]))/tan(cellABC[5]))
-  tmp[2,2] = sqrt((cellABC[2])**2 -(tmp[2,0])**2 - (tmp[2,1])**2)
-  return tmp
-
-if (option_cell==0):
-    print ("")
-    print ("read 2 files: box and xyz")
-    print ("")
-    print ("read Cell Parameters: file <box>")
-    box = np.loadtxt('box')
-    print ("")
-    print ("read Atomic Coordinates: file <xyz>")
-    status, natom = commands.getstatusoutput(" wc xyz | awk '{print $1}' ")
-    natom = int(natom)
-    
-    f  = open('xyz' ,"r")
-    atomList = []
-    xyz = np.zeros(shape=(natom,3))
-    for k in range(0,natom):
-      tmp = f.readline()
-      tmp = tmp.split()
-      atomList.append(tmp[0])
-      xyz[k,0] =  float(tmp[1])
-      xyz[k,1] =  float(tmp[2])
-      xyz[k,2] =  float(tmp[3])
-    f.close
-elif (option_cell==1):
+if (option_cell==1):
     print ("\n")
     print ("Orthohombic cell case")
     print ("read fileXYZ: %s\n" % file_xyz)
