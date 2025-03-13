@@ -2,7 +2,7 @@ import numpy as np
  
 # read input 
 import argparse
-parser = argparse.ArgumentParser(description='split file xyz')
+parser = argparse.ArgumentParser(description='equally spaces file xyz')
 # Arguments supported by the code.
 parser.add_argument("--file_xyz",          default='file.xyz', help='file with format xyzf, xyzfe, xyzfes')
 parser.add_argument("--nevery", type=int,  default=100,        help='export file every this number of step')
