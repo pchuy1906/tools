@@ -11,8 +11,6 @@ parser.add_argument("--use_molecule_id",      type=int,   default=1, help='0, 1(
 parser.add_argument("--triclinic_cell",                   default=False, action="store_true", help="option for triclinic cell")
 parser.add_argument("--dipole_sphere",                    default=False, action="store_true", help="option for atom_style dipole sphere")
 
-
-
 args        = parser.parse_args()
 file_xyz        = args.file_xyz
 atom_type       = args.atom_type
