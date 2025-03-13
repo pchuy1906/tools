@@ -232,12 +232,14 @@ while True:
 
     atoms = Atoms(symbols=atomList, positions=xyz, cell=cell_xyz, pbc=True)
     print (atoms)
+    cell = atoms.get_cell()
+
     nconf += 1
 
     pair = []
     dist = np.array([])
     for i in range(natom):
-        tmp_arr = get_distances(atoms.positions[i], atoms.positions)
+        tmp_arr = get_distances(atoms.positions[i], atoms.positions,pbc=True, cell=cell)
         tmp_dist = tmp_arr[1][0]
         tmp_dist[tmp_dist<0.01] = 100.0
         #if is_cell_3:
