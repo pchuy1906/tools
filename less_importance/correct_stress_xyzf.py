@@ -25,13 +25,29 @@ while True:
     f2.write("%s" %( tmp ))
 
     tmp  = f.readline().split()
-    # print the cell length first
-    f2.write(tmp[0]+ " " + tmp[1] + " " + tmp[2] + " ")
+    ## print the cell length first
+    #f2.write(tmp[0]+ " " + tmp[1] + " " + tmp[2] + " ")
+    ## then the stress tensor
+    #f2.write(tmp[3]+ " " + tmp[4] + " " + tmp[5] + " " + tmp[6] + " " + tmp[8] + " " + tmp[7] + " ")
+    ## then the energy
+    #f2.write(tmp[9])
+    #f2.write('\n')
+
+    # print the cell first
+    f2.write('NON_ORTHO ')
+    for i in range(1,10):
+        f2.write("%s " %( tmp[i] ))
     # then the stress tensor
-    f2.write(tmp[3]+ " " + tmp[4] + " " + tmp[5] + " " + tmp[6] + " " + tmp[8] + " " + tmp[7] + " ")
+    f2.write("%s " %( tmp[10] ))
+    f2.write("%s " %( tmp[11] ))
+    f2.write("%s " %( tmp[12] ))
+    f2.write("%s " %( tmp[13] ))
+    f2.write("%s " %( tmp[15] ))
+    f2.write("%s " %( tmp[14] ))
     # then the energy
-    f2.write(tmp[9])
+    f2.write(tmp[16])
     f2.write('\n')
+
 
     for iatom in range(natom):
         tmp  = f.readline()

@@ -109,7 +109,7 @@ def write_dftb_input(method, calc_type, eTemp, mdTemp, SKF, ChIMES_params_file, 
         f2.write("%-s\n"        %( "Driver = VelocityVerlet {"))
         f2.write("%-s\n"        %( "    Steps = 2000000"))
         f2.write("%-s\n"        %( "    TimeStep [Femtosecond] = 0.1"))
-        f2.write("%-s\n"        %( "    MDRestartFrequency = 1"))
+        f2.write("%-s\n"        %( "    MDRestartFrequency = 500"))
         f2.write("%-s\n"        %( "    Thermostat = NoseHoover {"))
         f2.write("%-s\n"        %( "        CouplingStrength [cm^-1] = 3500"))
         f2.write("%-s %12.3f\n" %( "        Temperature [Kelvin] = ", mdTemp))
@@ -218,9 +218,9 @@ while True:
 
     if (cell_option == "NON_ORTHO"):
         cell_9 = [float(x) for x in tmp[1:10]]
-        stress_6 = [float(x) for x in tmp[10:16]]
+        #stress_6 = [float(x) for x in tmp[10:16]]
         #print ("stress tensors ", stress_6)
-        energy = float(tmp[16])
+        #energy = float(tmp[16])
         #print ("energy ", energy)
     elif (cell_option == "cell_9"):
         cell_9 = [float(x) for x in tmp[0:9]]
