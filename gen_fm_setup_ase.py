@@ -65,34 +65,6 @@ pair_dict_bond = {\
 'FeFe' : 2.74 \
 }
 
-def distance(r1, r2, cell):
-    """
-    Compute the distance between two points in a triclinic box with PBC.
-    Args:
-        r1 (numpy.ndarray): Position vector of the first point.
-        r2 (numpy.ndarray): Position vector of the second point.
-        cell (numpy.ndarray): 3x3 matrix representing the unit cell vectors.
-    Returns:
-        float: Distance between the two points, accounting for PBC.
-    """
-    delta_r = r1 - r2
-    delta_r_frac = np.linalg.solve(cell.T, delta_r)
-    delta_r_frac_pbc = delta_r_frac - np.round(delta_r_frac)
-    delta_r_pbc = np.matmul(cell.T , delta_r_frac_pbc)
-    dist = np.linalg.norm(delta_r_pbc)
-    #vector = r1 - r2
-    #vector_frac = np.dot(vector, np.linalg.inv(unit_cell))  # Convert to fractional coordinates
-    #vector_frac = vector_frac - np.round(vector_frac) # apply PBC
-    #vector = np.dot(vector_frac, unit_cell) # convert back to cartesian coordinates
-    #distance = np.linalg.norm(vector)
-    return dist
-
-
-def distance_cell3(x0, x1, cell):
-    delta = np.abs(x0 - x1)
-    delta = np.where(delta > 0.5 * cell, delta - cell, delta)
-    return np.sqrt((delta ** 2).sum(axis=-1))
-
 # merge 2 atom symbols to pair, sorted alphabetically
 def apair(atomList, atom):
     natom = len(atomList)
@@ -242,19 +214,6 @@ while True:
         tmp_arr = get_distances(atoms.positions[i], atoms.positions,pbc=True, cell=cell)
         tmp_dist = tmp_arr[1][0]
         tmp_dist[tmp_dist<0.01] = 100.0
-        #if is_cell_3:
-        #    cell_3 = np.array(cell_3)
-        #    #print (cell_3)
-        #    tmp_dist = distance_cell3(xyz, xyz[i,:], cell_3)
-        #    tmp_dist[tmp_dist<0.01] = 100.0
-        #else:
-        #    # much slower calculations
-        #    tmp_dist = []
-        #    for j in range(natom):
-        #        if i==j:
-        #            tmp_dist.append(100.0)
-        #        else:
-        #            tmp_dist.append(distance(xyz[j,:], xyz[i,:], cell_xyz))
         tmp_pair = apair(atomList, atomList[i])
         pair.extend(tmp_pair)
         dist = np.append(dist, tmp_dist)
