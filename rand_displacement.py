@@ -24,8 +24,7 @@ natom = int(natom)
 print ("the number of atom:", natom)
 
 box = np.zeros(shape=(3,3))
-tmp = f.readline()
-tmp = tmp.split()
+tmp = f.readline().split()
 try:
     # format: box[1,:] box[2,:] box[3,:]
     k = 0
@@ -66,10 +65,15 @@ asym_list = ' '.join(asym_unique)
 
 f2 = open( "file_out.xyz", "w")
 f2.write("%4d\n" %( natom))
+
 if (cell_option=="cell_3"):
-    f2.write("%15.9f %15.9f %15.9f  %d %s\n" %( box[0,0], box[1,1], box[2,2], len(asym_unique), asym_list ))
+    f2.write("%15.9f %15.9f %15.9f  %d %s\n" %( box[0,0], box[1,1], box[2,2] ))
 elif (cell_option=="cell_9"):
-    f2.write("%15.9f %15.9f %15.9f %15.9f %15.9f %15.9f %15.9f %15.9f %15.9f %d %s\n" %( box[0,0], box[0,1], box[0,2], box[1,0], box[1,1], box[1,2], box[2,0], box[2,1], box[2,2], len(asym_unique), asym_list ))
+    f2.write("%15.9f %15.9f %15.9f %15.9f %15.9f %15.9f %15.9f %15.9f %15.9f\n" %( box[0,0], box[0,1], box[0,2], box[1,0], box[1,1], box[1,2], box[2,0], box[2,1], box[2,2] ))
+else:
+    print ("unknown cell_option ", cell_option)
+    exit()
+
 
 for k in range(0,natom):
     tmpp = np.zeros(shape=(3))
