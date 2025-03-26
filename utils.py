@@ -1,5 +1,63 @@
 import numpy as np
 
+def calculate_cell_parameters(matrix):
+    """
+    Calculates cell lengths (a, b, c) and angles (alpha, beta, gamma) from a 3x3 matrix.
+
+    Args:
+        matrix (numpy.ndarray): A 3x3 matrix representing the unit cell.
+
+    Returns:
+        tuple: A tuple containing cell lengths (a, b, c) and angles (alpha, beta, gamma) in degrees.
+    """
+    a = np.linalg.norm(matrix[0])
+    b = np.linalg.norm(matrix[1])
+    c = np.linalg.norm(matrix[2])
+
+    alpha = np.degrees(np.arccos(np.dot(matrix[1], matrix[2]) / (b * c)))
+    beta = np.degrees(np.arccos(npible_float(np.dot(matrix[0], matrix[2]) / (a * c))))
+    gamma = np.degrees(np.arccos(np.dot(matrix[0], matrix[1]) / (a * b)))
+
+    return (a, b, c), (alpha, beta, gamma)
+
+def Cell_XYZ_ABC(cellXYZ):
+    a1= cellXYZ[0,:]
+    a2= cellXYZ[1,:]
+    a3= cellXYZ[2,:]
+    a = np.sqrt(np.dot(a1, a1))
+    b = np.sqrt(np.dot(a2, a2))
+    c = np.sqrt(np.dot(a3, a3))
+    alp = np.arccos(np.dot(a2, a3)/(b*c))*180.0/np.pi
+    bet = np.arccos(np.dot(a1, a3)/(a*c))*180.0/np.pi
+    gam = np.arccos(np.dot(a1, a2)/(a*b))*180.0/np.pi
+    return np.array([a,b,c]), np.array([alp,bet,gam])
+
+def create_matrix_from_lengths_angles(lengths, angles_degrees):
+    """
+    Constructs a 3x3 matrix from given lengths and angles (in degrees).
+
+    Args:
+        lengths: A list or numpy array of three numbers representing the lengths of the matrix's vectors.
+        angles_degrees: A list or numpy array of three numbers representing the angles (in degrees) 
+                        between the matrix's vectors.
+
+    Returns:
+        A 3x3 numpy array representing the constructed matrix.
+    """
+    angles_radians = np.radians(angles_degrees)
+    alpha, beta, gamma = angles_radians
+    a, b, c = lengths
+
+    # Construct the matrix
+    matrix = np.array([
+        [a, b * np.cos(gamma), c * np.cos(beta)],
+        [0, b * np.sin(gamma), c * (np.cos(alpha) - np.cos(beta) * np.cos(gamma)) / np.sin(gamma)],
+        [0, 0, c * np.sqrt(1 - np.cos(beta)**2 - ((np.cos(alpha) - np.cos(beta) * np.cos(gamma)) / np.sin(gamma))**2)]
+    ])
+
+    return matrix.T
+
+
 def read_gen(file_dftb_gen):
 
     f = open(file_dftb_gen, 'rt')
