@@ -71,16 +71,44 @@ while True:
     natom = int(tmp)
 
     tmp = f.readline()
-    tmp = f.readline().split()
-    #print (tmp)
-    lx = float(tmp[1])-float(tmp[0])
-    tmp = f.readline().split()
-    #print (tmp)
-    ly = float(tmp[1])-float(tmp[0])
-    tmp = f.readline().split()
-    #print (tmp)
-    lz = float(tmp[1])-float(tmp[0])
-    #print (lx,ly,lz)
+    if "xy" in tmp:
+        #print ("NON_ORTHO")
+
+        tmp = f.readline().split()
+        [xlo_bound, xhi_bound, xy] = [float(x) for x in tmp]
+
+        tmp = f.readline().split()
+        [ylo_bound, yhi_bound, xz] = [float(x) for x in tmp]
+
+        tmp = f.readline().split()
+        [zlo_bound, zhi_bound, yz] = [float(x) for x in tmp]
+
+        zlo = zlo_bound
+        zhi = zhi_bound
+        ylo = ylo_bound - min(0.0,yz)
+        yhi = yhi_bound - max(0.0,yz)
+        xlo = xlo_bound - min(0.0,xy,xz,xy+xz)
+        xhi = xhi_bound - max(0.0,xy,xz,xy+xz)
+
+        lx = xhi-xlo
+        ly = yhi-ylo
+        lz = zhi-zlo
+    else:
+        tmp = f.readline().split()
+        #print (tmp)
+        lx = float(tmp[1])-float(tmp[0])
+        tmp = f.readline().split()
+        #print (tmp)
+        ly = float(tmp[1])-float(tmp[0])
+        tmp = f.readline().split()
+        #print (tmp)
+        lz = float(tmp[1])-float(tmp[0])
+        #print (lx,ly,lz)
+        xy = 0.0
+        xz = 0.0
+        yz = 0.0
+
+    cell_9 = [lx,0,0, xy,ly,0, xz,yz,lz]
 
     tmp = f.readline().split()
     tmp = np.array(tmp)
@@ -146,7 +174,9 @@ while True:
     if (export_quan=="xyzfes"):
         if (cell_type=="NON_ORTHO"):
             f3.write("%s" %("NON_ORTHO" ))
-            f3.write("%15.6f %15.6f %15.6f %15.6f %15.6f %15.6f %15.6f %15.6f %15.6f" %( lx,0,0, 0,ly,0, 0,0,lz ))
+            #f3.write("%15.6f %15.6f %15.6f %15.6f %15.6f %15.6f %15.6f %15.6f %15.6f" %( lx,0,0, 0,ly,0, 0,0,lz ))
+            for i in range(9):
+                f3.write("%15.6f " %( cell_9[i]))
             f3.write("%20.6f %20.6f %20.6f %20.6f %20.6f %20.6f" %( Pxx, Pyy, Pzz, Pxy, Pxz, Pyz ))
             f3.write("%20.6f" %( energy ))
             f3.write("\n")
