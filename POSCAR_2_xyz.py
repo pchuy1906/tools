@@ -17,5 +17,14 @@ cell_type    = args.cell_type
 
 natom, cell, atomList, xyz = utils.read_POSCAR(file_POSCAR)
 
+
+#Cxyz = np.dot(xyz, np.linalg.inv(cell))
+
+lengths, angles_degrees = utils.Cell_XYZ_ABC(cell)
+cell = utils.create_matrix_from_lengths_angles(lengths, angles_degrees)
+
+#xyz = np.dot(Cxyz, cell)
+
+
 fname = "POSCAR2xyz.xyz"
 utils.write_xyz(fname, natom, cell_type, cell, atomList, xyz)
