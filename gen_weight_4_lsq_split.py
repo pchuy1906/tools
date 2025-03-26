@@ -19,10 +19,13 @@ file_nxyz  = args.file_nxyz
 
 import os.path
 check_file = os.path.isfile(file_nxyz)
-#print(check_file)
+
+wS_vary = False
 
 nconf = 0
 if (check_file):
+    wS_vary = True
+    stress_collect = []
     f4 = open(file_nxyz, "rt")
     while True:
         tmp  = f4.readline()
@@ -33,18 +36,45 @@ if (check_file):
         tmp  = tmp.split()
         tmp_natom = int(tmp[0])
 
-        tmp  = f4.readline()
+        tmp  = f4.readline().split()
+
+        ncomment = len(tmp)
+        if (ncomment==17):
+            # format: NON_ORTHO cell(1,1:3), cell(2,1:3), cell(3,1:3), stress(1:6), energy
+            cell_9 = [float(tmp[i]) for i in range(1,10)]
+            stress = [float(tmp[i]) for i in range(10,16)]
+        elif (ncomment==11):
+            # format: NON_ORTHO cell(1,1:3), cell(2,1:3), cell(3,1:3), energy
+            cell_9 = [float(tmp[i]) for i in range(1,10)]
+            stress = []
+        elif (ncomment==10):
+            # format: cell(1), cell(2), cell(3), stress(1:6), energy
+            cell_9 = [0.0 for i in range(1,10)]
+            cell_9[0] = float(tmp[0])
+            cell_9[4] = float(tmp[1])
+            cell_9[8] = float(tmp[2])
+            stress = [float(tmp[i]) for i in range(3,9)]
+        elif (ncomment==4):
+            # format: cell(1), cell(2), cell(3), energy
+            cell_9 = [0.0 for i in range(1,10)]
+            cell_9[0] = float(tmp[0])
+            cell_9[4] = float(tmp[1])
+            cell_9[8] = float(tmp[2])
+            stress = []
+        else:
+            print ("unknown option")
+            print ("ncomment=",ncomment)
+            print (tmp)
+            exit()
+
+        stress_collect.append(stress)
 
         for i in range(tmp_natom):
             tmp  = f4.readline()
 
         nconf += 1
 
-    if (nCondensed != nconf):
-        print ("ERROR")
-        print ("nCondensed, nconf")
-        print (nCondensed, nconf)
-
+#print ("len(stress_collect)=", len(stress_collect))
 
 f2 = open('label.txt', "w")
 f3 = open('new_weight.dat', "w")
@@ -103,16 +133,17 @@ while True:
         f2.write("stress_xz_"  +mole_name+"\n")
         f2.write("stress_yz_"  +mole_name+"\n")
         f2.write("dia_stress_" +mole_name+"\n")
+        stress_values = stress_collect[id_frame]
 
-        f3.write('%15.6f \n' %(wS*1.0) )
-        f3.write('%15.6f \n' %(wS*1.0) )
-        f3.write('%15.6f \n' %(wS*1.0) )
-        f3.write('%15.6f \n' %(wS*1.0) )
-        f3.write('%15.6f \n' %(wS*1.0) )
-        f3.write('%15.6f \n' %(wS*1.0) )
-        f3.write('%15.6f \n' %(wS*1.0) )
-        f3.write('%15.6f \n' %(wS*1.0) )
-        f3.write('%15.6f \n' %(wS*1.0) )
+        f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[0]/50)**2 )) )
+        f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[3]/50)**2 )) )
+        f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[4]/50)**2 )) )
+        f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[3]/50)**2 )) )
+        f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[1]/50)**2 )) )
+        f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[5]/50)**2 )) )
+        f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[4]/50)**2 )) )
+        f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[5]/50)**2 )) )
+        f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[2]/50)**2 )) )
 
     f2.write("energy_"+mole_name+"\n")
     f2.write("energy_"+mole_name+"\n")
