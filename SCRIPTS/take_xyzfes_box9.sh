@@ -12,6 +12,11 @@ echo "usage: \"./take_xyz_f.sh\" or \"./take_xyz_f.sh arg1_nneed arg2_nneglect\"
 
 grep -e "free  energy   TOTEN"  ${OUTCAR} | awk '{printf "%15.9f\n", $5*'"$eV2kcal"'}' > ENERGIES.dat
 
+
+# VASP format:   X, Y, Z, XY, YZ, XZ
+
+# ChIMES format: X, Y, Z, XY, XZ, YZ
+
 #grep -e "in kB"  ${OUTCAR} | awk '{printf "%15.9f %15.9f %15.9f %15.9f %15.9f %15.9f\n", $3*'"$kbar2GPa"', $4*'"$kbar2GPa"', $5*'"$kbar2GPa"', $6*'"$kbar2GPa"', $7*'"$kbar2GPa"', $8*'"$kbar2GPa"'  }' > STRESS_TENSOR.dat
 grep -e "in kB"  ${OUTCAR} | awk '{printf "%15.9f %15.9f %15.9f %15.9f %15.9f %15.9f\n", $3*'"$kbar2GPa"', $4*'"$kbar2GPa"', $5*'"$kbar2GPa"', $6*'"$kbar2GPa"', $8*'"$kbar2GPa"', $7*'"$kbar2GPa"'  }' > STRESS_TENSOR.dat
 
