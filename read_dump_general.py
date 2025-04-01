@@ -196,10 +196,13 @@ while True:
         print ("unknown option")
         exit()
 
+    if (read_charge):
+        f2.write("%d " %(nconf))
+        for i in range(natom):
+            f2.write("%6.3f " %(q[i]))
+        f2.write("\n")
 
     for i in range(natom):
-        if (read_charge):
-            f2.write("%15.9f\n" %(q[i]))
         f3.write("%s" %(atype[i]))
         f3.write("%15.9f" %(x[i]))
         f3.write("%15.9f" %(y[i]))
