@@ -15,7 +15,7 @@ cat > job_${nnext}.sh << EOF
 #SBATCH -N 2
 #SBATCH -J DFT
 #SBATCH -t 01:00:00
-#SBATCH -p pbatch
+#SBATCH -p pdebug
 #SBATCH -A iap
 #SBATCH --exclusive
 
