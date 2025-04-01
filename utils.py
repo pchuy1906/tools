@@ -1,5 +1,12 @@
 import numpy as np
 
+conv_Ha_2_kcalmol = 627.503
+conv_eV_2_kcalmol = 23.0609 
+conv_eV_2_Ha      = 0.0367502
+
+conv_Angstrom_2_Bohr = 1.8897259886
+
+
 def calculate_cell_parameters(matrix):
     """
     Calculates cell lengths (a, b, c) and angles (alpha, beta, gamma) from a 3x3 matrix.
@@ -281,13 +288,116 @@ def write_POSCAR(natom, cell_3_3, atomList, xyz):
     f2.write("\n")
     f2.write("%1s\n" %( "Direct" ))
 
-
     xyz = np.dot(xyz, np.linalg.inv(cell_3_3))
 
     for item in syms:
         for k in range(0,natom):
             if (item == atomList[k]):
                 f2.write("%20.15f %20.15f %20.15f\n" %( xyz[k,0], xyz[k,1], xyz[k,2] ))
+    f2.close()
 
+
+def read_multicharge(file_out_multicharge, natom):
+
+    f = open(file_out_multicharge, 'rt')
+
+    while True:
+
+        line = f.readline()
+        if line == '': break
+
+        keywords = " q "
+        if keywords in line:
+            print ("*****")
+            print ("read atomic charges")
+            print (line)
+            line = f.readline()
+            q = []
+            for i in range(natom):
+                line = f.readline().split()
+                q.append(float(line[4]))
+
+        keywords = "dE/dx"
+        if keywords in line:
+            print ("*****")
+            print ("read atomic forces")
+            print (line)
+            line = f.readline()
+            fxyz = np.array([])
+            for i in range(natom):
+                line = f.readline().split()
+                tmp = [-float(line[i]) for i in range(3,6)]
+                fxyz = np.append(fxyz, np.array(tmp))
+                # Unit of forces Ha/Bohr, ChIMES uses this unit
+            fxyz = fxyz.reshape((natom, 3))
+
+
+        keywords = "Electrostatic energy:"
+        if keywords in line:
+            print ("*****")
+            print ("read energy")
+            print (line)
+            line = line.split()
+            energy = float(line[2])*conv_Ha_2_kcalmol
+            # Unit of energy Ha, ChIMES uses kcal/mol; need conv_Ha_2_kcalmol
+
+        keywords = "Virial:"
+        if keywords in line:
+            print ("*****")
+            print ("read stress")
+            print (line)
+            line = f.readline()
+            line = f.readline()
+            line = f.readline()
+            stress = np.array([])
+            for i in range(3):
+                line = f.readline().split()
+                tmp = [float(line[i]) for i in range(1,4)]
+                stress = np.append(stress, np.array(tmp))
+            # Unit of stress , ChIMES uses GPa
+            stress = stress.reshape((3, 3))
+
+
+    return q, energy, fxyz, stress
+
+
+def write_xyzf(fname, natom, AtomList, xyz, cell_xyz, cell_type, fxyz, energy, stress, export_stress):
+    f2 = open(fname, "w")
+    f2.write("%1d\n" %( natom ))
+    # cell parameters
+    if (cell_type == "cell_3"):
+        for i in range(3):
+            f2.write("%15.9f" %( cell_xyz[i,i]))
+    elif (cell_type == "cell_9"):
+        for i in range(3):
+            for j in range(3):
+                f2.write("%15.9f" %( cell_xyz[i,j]))
+    elif (cell_type == "NON_ORTHO"):
+        f2.write("NON_ORTHO ")
+        for i in range(3):
+            for j in range(3):
+                f2.write("%15.9f" %( cell_xyz[i,j]))
+    else:
+        print ("unknown cell_type")
+    # stress
+    if export_stress:
+        for i in range(3):
+            f2.write("%15.9f" %( stress[i,i]))
+        #xy , xy, yz
+        f2.write("%15.9f" %( stress[0,1]))
+        f2.write("%15.9f" %( stress[0,2]))
+        f2.write("%15.9f" %( stress[1,2]))
+    # energy
+    f2.write("%20.9f" %( energy ))
+    f2.write("\n")
+
+    for i in range(natom):
+        f2.write("%s" %( AtomList[i] ))
+        for j in range(3):
+            f2.write("%15.9f" %( xyz[i,j]))
+        for j in range(3):
+            f2.write("%15.9f" %( fxyz[i,j]))
+        f2.write("\n")
+    
     f2.close()
 
