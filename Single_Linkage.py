@@ -56,17 +56,31 @@ def write_xyz(fname, natomi, tmp_cell, atomList, xyz):
         for j in range(3):
             f2.write("%15.9f " %( xyz[i][j] ))
         f2.write("\n")
+    f2.close()
 
 tmp_cell = cell[:]
+
+all_natom = 0
+all_atomList = []
+all_xyz = []
 for i in range(nclusters):
     iloc = np.where(clusters == i+1)[0]
     fname = "molecule-"+str(i+1)+".xyz"
     natomi = len(iloc)
     atomList = element_symbols[iloc]
+    print (type(atomList))
     xyz = atoms.positions[iloc]
     write_xyz(fname, natomi, tmp_cell, atomList, xyz)
 
+    all_natom += natomi
+    all_atomList.append(atomList)
+    all_xyz.append(xyz)
 
+all_atomList = np.concatenate(all_atomList)
+all_xyz = np.concatenate(all_xyz, axis=0)
+
+fname = "molecule-all.xyz"
+write_xyz(fname, all_natom, tmp_cell, all_atomList, all_xyz)
 
 
 

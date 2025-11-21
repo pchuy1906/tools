@@ -5,34 +5,40 @@ from ase.geometry import  get_distances
 from ase.constraints import FixAtoms
 from ase.calculators.lj import LennardJones
 from ase.optimize import BFGS
-import xtb
-from xtb.ase.calculator import XTB
-#from ase.calculators.xtb import XTB
+
+import sys
+module_path = "/g/g92/pham20/tools/others"
+sys.path.append(module_path)
+import utils
+
 
 # read input 
 import argparse
 parser = argparse.ArgumentParser(description='generate file fm_setup.in')
 # Arguments supported by the code.
-parser.add_argument("--file_POSCAR_1", default='POSCAR', help='file with format xyzf, xyzfe, xyzfes')
-parser.add_argument("--file_POSCAR_2", default='POSCAR', help='file with format xyzf, xyzfe, xyzfes')
+parser.add_argument("--file_xyz_1",        default='xyz', help='file xyz')
+parser.add_argument("--file_xyz_2",        default='xyz', help='file xyz')
+parser.add_argument("--rcut",  type=float, default=1.5,   help='rcut')
+parser.add_argument("--nwmax", type=int,   default=50,    help='nwmax')
 
 args    = parser.parse_args()
-poscar1_path  = args.file_POSCAR_1
-poscar2_path  = args.file_POSCAR_2
+file_xyz_1  = args.file_xyz_1
+file_xyz_2  = args.file_xyz_2
+rcut        = args.rcut
+nwmax       = args.nwmax
 
-atoms1 = read(poscar1_path)
-atoms2 = read(poscar2_path)
-merged_atoms = atoms1 + atoms2
+cell_type = "cell_9"
+natom, cell_3_3, atomList, xyz = utils.read_xyz(file_xyz_1, cell_type)
+atoms1 = Atoms(symbols=atomList, positions=xyz, cell=cell_3_3, pbc=True)
 
-natom1 = len(atoms1)
-natom2 = len(atoms2)
+
+cell_type = "cell_9"
+natom2, cell_3_3_2, atomList2, xyz2 = utils.read_xyz(file_xyz_2, cell_type)
 
 nwat = natom2//3
-
 collect_xyz = []
 collect_sym = []
-
-cell = atoms1.get_cell()
+all_atoms = atoms1
 
 for i in range(nwat):
 
@@ -40,48 +46,40 @@ for i in range(nwat):
 
     tmp_xyz = []
 
-    i1 = natom1 + 2*i
-    TMP = get_distances(merged_atoms.positions[0:natom1], merged_atoms.positions[i1])
+    i1 = 3*i
+    TMP = get_distances(all_atoms.positions, xyz2[i1],pbc=True, cell=cell_3_3)
     dist_arr = np.append(dist_arr, np.array(TMP[1]))
-    tmp_xyz.append(merged_atoms.positions[i1].tolist())
+    tmp_xyz.append(xyz2[i1].tolist())
 
-    i1 = natom1 + 2*i+1
-    TMP = get_distances(merged_atoms.positions[0:natom1], merged_atoms.positions[i1])
+    i1 = 3*i+1
+    TMP = get_distances(all_atoms.positions, xyz2[i1],pbc=True, cell=cell_3_3)
     dist_arr = np.append(dist_arr, np.array(TMP[1]))
-    tmp_xyz.append(merged_atoms.positions[i1].tolist())
+    tmp_xyz.append(xyz2[i1].tolist())
 
-
-    i1 = natom1 + 2*nwat + i
-    TMP = get_distances(merged_atoms.positions[0:natom1], merged_atoms.positions[i1])
+    i1 = 3*i+2
+    TMP = get_distances(all_atoms.positions, xyz2[i1],pbc=True, cell=cell_3_3)
     dist_arr = np.append(dist_arr, np.array(TMP[1]))
-    tmp_xyz.append(merged_atoms.positions[i1].tolist())
+    tmp_xyz.append(xyz2[i1].tolist())
 
     tmp_sym = ['H','H','O']
 
-    if (np.min(dist_arr) > 1.5):
+    if nwmax<1:
+        break
+    if (np.min(dist_arr) > rcut):
         collect_xyz.extend(tmp_xyz)
         collect_sym.extend(tmp_sym)
+        selected_atoms = Atoms(symbols=collect_sym, positions=collect_xyz, cell=cell_3_3, pbc=True)
+        all_atoms = atoms1 + selected_atoms
+        if len(collect_sym)==3*nwmax:
+            break
 
-print (collect_sym)
-print (collect_xyz)
+print ("number of adding water", len(collect_sym)//3)
 
-selected_atoms = Atoms(symbols=collect_sym, positions=collect_xyz, cell=cell, pbc=True)
 
-all_atoms = atoms1 + selected_atoms
-#output_path = "POSCAR_all"
-#write(output_path, all_atoms, format='vasp')
+cell_str = " ".join(f"{x:.6f}" for x in cell_3_3.flatten())
 
-# fix atoms
-fixed_indices = [i for i in range(natom1)]
-constraint = FixAtoms(indices=fixed_indices) 
-all_atoms.set_constraint(constraint)
+output_path = "xyz_all.xyz"
+write(output_path, all_atoms, format='xyz', comment=cell_str)
 
-#all_atoms.calc = LennardJones()
-all_atoms.calc = XTB(method='GFN2-xTB')
-
-optimizer = BFGS(all_atoms)  
-optimizer.run(fmax=2.961)  
-
-output_path = "POSCAR_all"
-write(output_path, all_atoms, format='vasp')
-
+output_path = "xyz_water.xyz"
+write(output_path, selected_atoms, format='xyz', comment=cell_str)

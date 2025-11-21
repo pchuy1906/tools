@@ -7,18 +7,18 @@ from numpy import linalg
 import argparse
 parser = argparse.ArgumentParser(description='making the larger system')
 # Arguments supported by the code.
-parser.add_argument("--file_xyz", default='file.xyz', help='file_XYZ format xyz')
-parser.add_argument("--option_cell", default=1, help='0-(box,xyz)   1-(box3:orthohombic cell)  2-(box9:general) 3-(NON_ORTHO)')
-parser.add_argument("--Nx", default=2, help='Nx')
-parser.add_argument("--Ny", default=2, help='Ny')
-parser.add_argument("--Nz", default=2, help='Nz')
+parser.add_argument("--file_xyz",     default='file.xyz', help='file_XYZ format xyz')
+parser.add_argument("--cell_type",    default='cell_3',   help='cell_3/cell_9/NON_ORTHO')
+parser.add_argument("--Nx", type=int, default=2,          help='Nx')
+parser.add_argument("--Ny", type=int, default=2,          help='Ny')
+parser.add_argument("--Nz", type=int, default=2,          help='Nz')
 
 args        = parser.parse_args()
 file_xyz     = args.file_xyz
-option_cell   = int(args.option_cell)
-Nx           = int(args.Nx)
-Ny           = int(args.Ny)
-Nz           = int(args.Nz)
+cell_type    = args.cell_type
+Nx           = args.Nx
+Ny           = args.Ny
+Nz           = args.Nz
 
 def Cell_XYZ_ABC(cellXYZ):
     a1= cellXYZ[0,:]
@@ -42,29 +42,7 @@ def Cell_ABC_XYZ(cellABC):
     tmp[2,2] = sqrt((cellABC[2])**2 -(tmp[2,0])**2 - (tmp[2,1])**2)
     return tmp
 
-if (option_cell==0):
-    print ("")
-    print ("read 2 files: box and xyz")
-    print ("")
-    print ("read Cell Parameters: file <box>")
-    box = np.loadtxt('box')
-    print ("")
-    print ("read Atomic Coordinates: file <xyz>")
-    status, natom = subprocess.check_call(" wc xyz | awk '{print $1}' ")
-    natom = int(natom)
-    
-    f  = open('xyz' ,"r")
-    myList = []
-    xyz = np.zeros(shape=(natom,3))
-    for k in range(0,natom):
-      tmp = f.readline()
-      tmp = tmp.split()
-      myList.append(tmp[0])
-      xyz[k,0] =  float(tmp[1])
-      xyz[k,1] =  float(tmp[2])
-      xyz[k,2] =  float(tmp[3])
-    f.close
-elif (option_cell==1):
+if (cell_type=="cell_3"):
     print ("")
     print ("Orthohombic cell case")
     print ("")
@@ -91,7 +69,7 @@ elif (option_cell==1):
         xyz[k,1] =  float(tmp[2])
         xyz[k,2] =  float(tmp[3])
     f.close
-elif (option_cell==2):
+elif (cell_type=="cell_9"):
     print ("")
     print ("cell_9")
     print ("")
@@ -120,7 +98,7 @@ elif (option_cell==2):
         xyz[k,1] =  float(tmp[2])
         xyz[k,2] =  float(tmp[3])
     f.close
-elif (option_cell==3):
+elif (cell_type=="NON_ORTHO"):
     print ("")
     print ("NON_ORTHO")
     print ("")
@@ -162,7 +140,7 @@ np.savetxt('newbox', newbox, fmt='%15.9f %15.9f %15.9f')
 
 f2 = open("bigger_"+str(Nx)+"_"+str(Ny)+"_"+str(Nz)+".xyz", "w")
 f2.write("%4d\n" %( natom*Nx*Ny*Nz ))
-if (option_cell==1):
+if (cell_type=='cell_3'):
     f2.write("%15.9f %15.9f %15.9f\n" %( newbox[0,0], newbox[1,1], newbox[2,2] ))
 else:
     f2.write("%15.9f %15.9f %15.9f %15.9f %15.9f %15.9f %15.9f %15.9f %15.9f\n" %( newbox[0,0], newbox[0,1], newbox[0,2], newbox[1,0], newbox[1,1], newbox[1,2], newbox[2,0], newbox[2,1], newbox[2,2] ))

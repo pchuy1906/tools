@@ -133,17 +133,27 @@ while True:
         f2.write("stress_xz_"  +mole_name+"\n")
         f2.write("stress_yz_"  +mole_name+"\n")
         f2.write("dia_stress_" +mole_name+"\n")
-        stress_values = stress_collect[id_frame]
-
-        f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[0]/50)**2 )) )
-        f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[3]/50)**2 )) )
-        f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[4]/50)**2 )) )
-        f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[3]/50)**2 )) )
-        f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[1]/50)**2 )) )
-        f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[5]/50)**2 )) )
-        f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[4]/50)**2 )) )
-        f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[5]/50)**2 )) )
-        f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[2]/50)**2 )) )
+        if check_file:
+            stress_values = stress_collect[id_frame]
+            f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[0]/50)**2 )) )
+            f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[3]/50)**2 )) )
+            f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[4]/50)**2 )) )
+            f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[3]/50)**2 )) )
+            f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[1]/50)**2 )) )
+            f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[5]/50)**2 )) )
+            f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[4]/50)**2 )) )
+            f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[5]/50)**2 )) )
+            f3.write('%15.6f \n' %(wS*1.0/(1.0+(stress_values[2]/50)**2 )) )
+        else:
+            f3.write('%15.6f \n' %(wS) )
+            f3.write('%15.6f \n' %(wS) )
+            f3.write('%15.6f \n' %(wS) )
+            f3.write('%15.6f \n' %(wS) )
+            f3.write('%15.6f \n' %(wS) )
+            f3.write('%15.6f \n' %(wS) )
+            f3.write('%15.6f \n' %(wS) )
+            f3.write('%15.6f \n' %(wS) )
+            f3.write('%15.6f \n' %(wS) )
 
     f2.write("energy_"+mole_name+"\n")
     f2.write("energy_"+mole_name+"\n")

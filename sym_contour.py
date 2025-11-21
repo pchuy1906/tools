@@ -10,7 +10,7 @@ parser = argparse.ArgumentParser(description='calculate average')
 # Arguments supported by the code.
 parser.add_argument("--file_input_density", default='density.dat', help='file_input_density')
 parser.add_argument("--file_input",         default='contour.dat', help='file_input_contour')
-parser.add_argument("--isym", type=int,     default=1,             help='1')
+parser.add_argument("--isym", type=int,     default=0,             help='1')
 args      = parser.parse_args()
 file_input_density   = args.file_input_density
 file_input           = args.file_input
@@ -34,17 +34,6 @@ print (idmin, idmax)
 idmiddle_real = 0.5 * float(idmin+idmax)
 print (idmiddle_real)
 idmiddle_int = int(idmiddle_real)
-
-#for i in range(idmin, idmiddle_int+1):
-#    i1 = i
-#    i2 = idmax - i + idmin
-#    F[i1,1] = 0.5*(Y[i1]+Y[i2])
-#    F[i2,1] = 0.5*(Y[i1]+Y[i2])
-#    print (i, i1, i2)
-#
-#newfile = "sym_" + file_input_density
-#idx=3
-#np.savetxt(newfile, F[idmin-idx:idmax+idx,:], fmt='%15.9f %15.9f')
 
 f  = open(file_input ,"r")
 tmp = f.readline().split()
@@ -72,17 +61,19 @@ Ny = fyx.shape[0]
 Nx = fyx.shape[1]
 Nxhalf = int(Nx/2)
 print (Ny, Nx)
-for iy in range(Ny):
-    for ix in range(Nxhalf):
-        #print (iy, ix, Ny-1-iy, Nx-1-ix)
-        if (isym==-1):
-            f1 = 0.5*(fyx[iy,ix]+fyx[Ny-1-iy,Nx-1-ix])
-            fyx[iy,ix] = f1
-            fyx[Ny-1-iy,Nx-1-ix] = f1
-        if (isym==1):
-            f1 = 0.5*(fyx[iy,ix]+fyx[iy,Nx-1-ix])
-            fyx[iy,ix] = f1
-            fyx[iy,Nx-1-ix] = f1
+
+if isym != 0:
+    for iy in range(Ny):
+        for ix in range(Nxhalf):
+            #print (iy, ix, Ny-1-iy, Nx-1-ix)
+            if (isym==-1):
+                f1 = 0.5*(fyx[iy,ix]+fyx[Ny-1-iy,Nx-1-ix])
+                fyx[iy,ix] = f1
+                fyx[Ny-1-iy,Nx-1-ix] = f1
+            if (isym==1):
+                f1 = 0.5*(fyx[iy,ix]+fyx[iy,Nx-1-ix])
+                fyx[iy,ix] = f1
+                fyx[iy,Nx-1-ix] = f1
 
 Y, X = np.meshgrid(x, y)
 
@@ -102,7 +93,10 @@ plt.xlim(x[0]-dx, x[-1]+dx)
 plt.ylim(y[0], y[-1])
 
 file_input = file_input.split('.')
-pre_out = "sym_" + file_input[0]
+if isym==0:
+    pre_out = file_input[0]
+else:
+    pre_out = "sym_" + file_input[0]
 
 plt.savefig(pre_out + '.png')
 

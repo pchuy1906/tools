@@ -65,7 +65,7 @@ while True:
     f2.write("%15.9f%15.9f%15.9f\n" % (0.0,0.0,0.0))
     for ixyz in range(3):
         for icellxyz in unitcell[ixyz,:]:
-            f2.write("%15.9f" % icellxyz)
+            f2.write("%15.9f" % float(icellxyz))
         f2.write("\n")
     
 f.close()

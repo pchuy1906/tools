@@ -84,9 +84,9 @@ while True:
     tmp = np.array(tmp)
     if (read_charge):
         idq  = np.where(tmp=='q')[0][0]
-    idfx = np.where(tmp=='fx')[0][0]
-    idfy = np.where(tmp=='fy')[0][0]
-    idfz = np.where(tmp=='fz')[0][0]
+    #idfx = np.where(tmp=='fx')[0][0]
+    #idfy = np.where(tmp=='fy')[0][0]
+    #idfz = np.where(tmp=='fz')[0][0]
     idx  = np.where(tmp=='x')[0][0]
     idy  = np.where(tmp=='y')[0][0]
     idz  = np.where(tmp=='z')[0][0]
@@ -97,9 +97,9 @@ while True:
     x  = np.zeros(shape=(natom))
     y  = np.zeros(shape=(natom))
     z  = np.zeros(shape=(natom))
-    fx = np.zeros(shape=(natom))
-    fy = np.zeros(shape=(natom))
-    fz = np.zeros(shape=(natom))
+    #fx = np.zeros(shape=(natom))
+    #fy = np.zeros(shape=(natom))
+    #fz = np.zeros(shape=(natom))
     strs = ["XXXX" for x in range(natom)]
     atype = np.array(strs)
     for i in range(natom):
@@ -115,9 +115,9 @@ while True:
         p_convert = 1.0
         e_convert = 1.0
 
-        fx[idt-1] = float(tmp[idfx-2]) * f_convert
-        fy[idt-1] = float(tmp[idfy-2]) * f_convert
-        fz[idt-1] = float(tmp[idfz-2]) * f_convert
+        #fx[idt-1] = float(tmp[idfx-2]) * f_convert
+        #fy[idt-1] = float(tmp[idfy-2]) * f_convert
+        #fz[idt-1] = float(tmp[idfz-2]) * f_convert
         iid = int(tmp[idi-2])
 
     if (read_charge):

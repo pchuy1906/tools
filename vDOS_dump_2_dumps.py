@@ -32,14 +32,22 @@ nwat      = args.nwat
 f  = open(file_dump ,"rt")
 nconf = 0
 
-f2 = open(fPOSCAR)
-lines = f2.readlines()
-# line number 7 is: nH, nO, nSi
-nH_all, nO_all, nSi_all = lines[6].split()
-nH_all = int(nH_all)
-nO_all = int(nO_all)
-nSi_all = int(nSi_all)
-print (nH_all, nO_all, nSi_all)
+if nhost==0:
+    nH_host = 0
+    nO_host = 0
+    nSi_host = 0
+    nH_all = 2*nwat
+    nO_all = nwat
+    nSi_all = 0
+else:
+    f2 = open(fPOSCAR)
+    lines = f2.readlines()
+    # line number 7 is: nH, nO, nSi
+    nH_all, nO_all, nSi_all = lines[6].split()
+    nH_all = int(nH_all)
+    nO_all = int(nO_all)
+    nSi_all = int(nSi_all)
+    print (nH_all, nO_all, nSi_all)
 
 nH_wat = 2*nwat
 nO_wat = 1*nwat

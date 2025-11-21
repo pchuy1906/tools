@@ -25,26 +25,27 @@ print ("the number of atom:", natom)
 
 box = np.zeros(shape=(3,3))
 tmp = f.readline().split()
-try:
+if cell_option=='cell_9':
     # format: box[1,:] box[2,:] box[3,:]
     k = 0
     for k1 in range(3):
         for k2 in range(3):
             box[k1,k2] = float(tmp[k])
             k += 1
-except:
-    try:
-        # format: NON_ORTHOR box[1,:] box[2,:] box[3,:]
-        k = 1
-        for k1 in range(3):
-            for k2 in range(3):
-                box[k1,k2] = float(tmp[k])
-                k += 1
-    except:
-        box = np.zeros(shape=(3,3))
-        # Orthor cell a, b, c
-        for k1 in range(3):
-            box[k1,k1] = float(tmp[k1])
+elif cell_option=='NON_ORTHO':
+    # format: NON_ORTHOR box[1,:] box[2,:] box[3,:]
+    k = 1
+    for k1 in range(3):
+        for k2 in range(3):
+            box[k1,k2] = float(tmp[k])
+            k += 1
+elif cell_option=='cell_3':
+    box = np.zeros(shape=(3,3))
+    # Orthor cell a, b, c
+    for k1 in range(3):
+        box[k1,k1] = float(tmp[k1])
+else:
+    print ("unknown cell_option")
 
 print (box)
 atomList = []
@@ -67,7 +68,7 @@ f2 = open( "file_out.xyz", "w")
 f2.write("%4d\n" %( natom))
 
 if (cell_option=="cell_3"):
-    f2.write("%15.9f %15.9f %15.9f  %d %s\n" %( box[0,0], box[1,1], box[2,2] ))
+    f2.write("%15.9f %15.9f %15.9f\n" %( box[0,0], box[1,1], box[2,2] ))
 elif (cell_option=="cell_9"):
     f2.write("%15.9f %15.9f %15.9f %15.9f %15.9f %15.9f %15.9f %15.9f %15.9f\n" %( box[0,0], box[0,1], box[0,2], box[1,0], box[1,1], box[1,2], box[2,0], box[2,1], box[2,2] ))
 else:

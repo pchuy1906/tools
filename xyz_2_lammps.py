@@ -29,7 +29,7 @@ print ("")
 print ("read fileXYZ:", file_xyz)
 
 natom, cell_3_3, atomList, xyz = utils.read_xyz(file_xyz, cell_type)
-
+print (cell_3_3)
 
 syms, counts_syms = np.unique(atomList, return_counts=True)
 ntype = len(syms)

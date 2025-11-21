@@ -12,20 +12,20 @@ mkdir ${new_fold}
 cat > job_${nnext}.sh << EOF
 #!/bin/sh
 
-#SBATCH -N 2
-#SBATCH -J DFT
-#SBATCH -t 01:00:00
-#SBATCH -p pdebug
-#SBATCH -A iap
+#SBATCH -N 1
+#SBATCH -J DFT-3
+#SBATCH -t 24:00:00
+#SBATCH -p pbatch
+#SBATCH -A guests
 #SBATCH --exclusive
 
-nnodes=2
-nMPI=224
+nnodes=1
+nMPI=112
 
 POTCARpool="/usr/gapps/emc-vasp/pseudopotentials/potpaw_PBE.54"
 
 cd ${old_fold}
-    cp INCAR KPOINTS POTCAR job* *.dat ../${new_fold}
+    cp INCAR KPOINTS POTCAR ../${new_fold}
     cp CONTCAR ../${new_fold}/POSCAR
 cd ../${new_fold}
     #rm -rf POTCAR

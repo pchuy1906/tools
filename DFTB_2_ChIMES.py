@@ -1,3 +1,8 @@
+import sys
+module_path = "/g/g92/pham20/tools/others"
+sys.path.append(module_path)
+import utils
+
 import numpy as np
 
 import argparse
@@ -116,45 +121,7 @@ def read_dftb_detail(file_dftb_detail, natom):
     return fxyz, energy, stress
 
 fxyz, energy, stress = read_dftb_detail(file_dftb_detail, natom)
+fname = "input.xyzf"
+export_stress = True
+utils.write_xyzf(fname, natom, AtomList, xyz, cell_xyz, cell_type, fxyz, energy, stress, export_stress)
 
-def write_ChIMES_format( natom, AtomList, xyz, cell_xyz, cell_type, fxyz, energy, stress, export_stress):
-    f2 = open("DFTB.xyzf", "w")
-    f2.write("%1d\n" %( natom ))
-    # cell parameters
-    if (cell_type == "cell_3"):
-        for i in range(3):
-            f2.write("%15.9f" %( cell_xyz[i,i]))
-    elif (cell_type == "cell_9"):
-        for i in range(3):
-            for j in range(3):
-                f2.write("%15.9f" %( cell_xyz[i,j]))
-    elif (cell_type == "NON_ORTHO"):
-        f2.write("NON_ORTHO ")
-        for i in range(3):
-            for j in range(3):
-                f2.write("%15.9f" %( cell_xyz[i,j]))
-    else:
-        print ("unknown cell_type")
-    # stress
-    if export_stress:
-        for i in range(3):
-            f2.write("%15.9f" %( stress[i,i]))
-        #xy , xy, yz
-        f2.write("%15.9f" %( stress[0,1]))
-        f2.write("%15.9f" %( stress[0,2]))
-        f2.write("%15.9f" %( stress[1,2]))
-    # energy
-    f2.write("%20.9f" %( energy ))
-    f2.write("\n")
-
-    for i in range(natom):
-        f2.write("%s" %( AtomList[i] ))
-        for j in range(3):
-            f2.write("%15.9f" %( xyz[i,j]))
-        for j in range(3):
-            f2.write("%15.9f" %( fxyz[i,j]))
-        f2.write("\n")
-    
-    f2.close()
-
-write_ChIMES_format( natom, AtomList, xyz, cell_xyz, cell_type, fxyz, energy, stress, export_stress)

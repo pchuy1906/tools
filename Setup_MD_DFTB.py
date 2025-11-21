@@ -6,6 +6,7 @@ element_dict_spdf = {\
 'H' : "s",\
 'N' : "p",\
 'O' : "p",\
+'P' : "p",\
 'Al' : "p",\
 'Fe' : "d" \
 }
@@ -109,7 +110,7 @@ def write_dftb_input(method, calc_type, eTemp, mdTemp, SKF, ChIMES_params_file, 
         f2.write("%-s\n"        %( "Driver = VelocityVerlet {"))
         f2.write("%-s\n"        %( "    Steps = 2000000"))
         f2.write("%-s\n"        %( "    TimeStep [Femtosecond] = 0.1"))
-        f2.write("%-s\n"        %( "    MDRestartFrequency = 500"))
+        f2.write("%-s\n"        %( "    MDRestartFrequency = 5"))
         f2.write("%-s\n"        %( "    Thermostat = NoseHoover {"))
         f2.write("%-s\n"        %( "        CouplingStrength [cm^-1] = 3500"))
         f2.write("%-s %12.3f\n" %( "        Temperature [Kelvin] = ", mdTemp))
@@ -167,7 +168,7 @@ def write_dftb_input(method, calc_type, eTemp, mdTemp, SKF, ChIMES_params_file, 
 
 
     f2.write("%-s\n" %( "    SCC = YES"))
-    f2.write("%-s\n" %( "    MaxSCCIterations = 200"))
+    f2.write("%-s\n" %( "    MaxSCCIterations = 500"))
     f2.write("%-s\n" %( "    Mixer = Broyden {"))
     f2.write("%-s\n" %( "        MixingParameter = 0.1"))
     f2.write("%-s\n" %( "    }"))
