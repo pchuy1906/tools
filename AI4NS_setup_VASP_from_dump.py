@@ -77,8 +77,8 @@ def main():
         logging.info(f'Reading LAMMPS dump and writing POSCAR files')
         read_lammps_dump(lammps_dump_path, element_symbols)
     else:
-        pe = read_lammps_log(lammps_log_path)
-        read_lammps_dump(lammps_dump_path, element_symbols, potential_energies=pe, export_stress=export_stress)
+        lammps_units, pe = read_lammps_log(lammps_log_path)
+        read_lammps_dump(lammps_dump_path, element_symbols, potential_energies=pe, export_stress=export_stress, lammps_units=lammps_units)
 
 if __name__ == '__main__':
     main()

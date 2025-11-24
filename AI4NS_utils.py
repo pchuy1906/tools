@@ -5,6 +5,7 @@ import logging
 import sys
 from typing import Sequence, Any
 from ase.data import atomic_masses, chemical_symbols
+from ase.geometry import find_mic
 
 from ase.units import kcal, mol, Hartree, Bohr, GPa, eV, Angstrom, bar
 convert_kbar_2_GPa = bar/GPa
@@ -12,6 +13,7 @@ kcal_per_mol = kcal/mol
 convert_eV_2_kcal_per_mol = eV/kcal_per_mol
 convert_eV_2_Hartree = eV/Hartree
 convert_Angstrom_2_Bohr = Angstrom/Bohr
+convert_kcal_per_mol_2_Hartree = kcal_per_mol/Hartree
 
 def read_poscar(filename):
     """
@@ -323,7 +325,7 @@ def write_POSCAR(
         for idx, (order, atype, amol) in enumerate(zip(new_order, new_atype, new_amol)):
             file.write(f"{idx} {order} {atype} {amol}\n")
 
-def read_lammps_dump(filename, element_symbols, potential_energies=None, export_stress=None):
+def read_lammps_dump(filename, element_symbols, potential_energies=None, export_stress=None, lammps_units=None):
     """
     Reads a LAMMPS dump file and optionally associates potential energies.
 
@@ -355,8 +357,6 @@ def read_lammps_dump(filename, element_symbols, potential_energies=None, export_
                 print(f"Error: Failed to parse atom count: {natom_line}")
                 sys.exit(1)
 
-            #logging.info(f"Config {nconf}: Atom count = {natom}")
-
             # Read cell lines
             cell_info_line = f.readline()
             line_cell_x = f.readline().split()
@@ -369,7 +369,6 @@ def read_lammps_dump(filename, element_symbols, potential_energies=None, export_
                 cell_type = "cell_3"
 
             cell9 = read_cell(cell_type, line_cell_x, line_cell_y, line_cell_z)
-            #logging.info(f"Cell parameters: {cell9}")
 
             # Read atom data header
             atom_header = f.readline().split()
@@ -418,9 +417,7 @@ def read_lammps_dump(filename, element_symbols, potential_energies=None, export_
             atom_list = element_symbols[atype-1]
             nconf += 1
             if potential_energies is not None:
-                print (atom_list)
                 cell_vectors = cell9.reshape((3, 3))
-                print (cell_vectors)
                 energy = potential_energies[nconf-1]
                 positions = np.column_stack((x, y, z))
                 forces = np.column_stack((fx, fy, fz))
@@ -430,9 +427,13 @@ def read_lammps_dump(filename, element_symbols, potential_energies=None, export_
                 aorder = np.array(aorder)
                 lammps_ids = np.column_stack((aorder, aorder, atype, amol))
 
+                # Convert quantities to ChIMES units
+                if lammps_units=="real":
+                    forces *= convert_kcal_per_mol_2_Hartree/convert_Angstrom_2_Bohr
+
                 write_chimes_xyzf(
                     atom_list=atom_list,
-                    cell_type=cell_type,
+                    cell_type="NON_ORTHO",
                     cell_vectors=cell_vectors,
                     export_stress=export_stress,
                     energy=energy,
@@ -473,12 +474,20 @@ def read_lammps_log(filename):
                         poteng_index = thermo_header.index('PotEng')
                     except ValueError:
                         raise ValueError("'PotEng' not found in thermo header.")
-                    thermo_values = file.readline().split()
-                    potential_energies.append(float(thermo_values[poteng_index]))
+                    try:
+                        thermo_values = file.readline().split()
+                        potential_energies.append(float(thermo_values[poteng_index]))
+                    except ValueError:
+                        thermo_values = file.readline().split()
+                        thermo_values = file.readline().split()
+                        potential_energies.append(float(thermo_values[poteng_index]))
+                if "units" in line:
+                    lammps_units = line.split()[1]
+
     except Exception as e:
         print(f"Error reading file '{filename}': {e}")
         return np.array([])
-    return np.array(potential_energies)
+    return lammps_units, np.array(potential_energies)
 
 def extract_cell_xyzf(line):
     if line[0]=="NON_ORTHO":
@@ -495,21 +504,64 @@ def mapping_ij_to_column(n_type_max):
     column_str = []
     for i in range(n_type_max):
         for j in range(i+1,n_type_max):
-            tmp_str = str(i)+"_"+str(j)
+            tmp_str = str(i+1)+"_"+str(j+1)
             column_id.append(ncount)
             column_str.append(tmp_str)
             ncount += 1
     column_id_of = dict(zip(column_str, column_id))
     return column_id_of
 
+def identify_molecules(xyz, atype, amol, nmol):
+    molecules_xyz = []
+    molecules_atype = []
+    for i in range(nmol):
+        indices = np.where(amol == i+1)
+        xyz0  = xyz[indices]
+        atype0 = atype[indices]
+        molecules_xyz.append(xyz0)
+        molecules_atype.append(atype0)
+    return molecules_xyz, molecules_atype
 
-def read_xyzf(filename, n_type_max):
+def gen_matrix_for_single_config(molecules_xyz, molecules_atype, column_id_of, cell, rcut, n_type_max):
+    nA = n_type_max*(n_type_max-1)//2
+    nB = nA
+    nvar = nA + nB
+    A_row = np.zeros(nvar)
+
+    nmol = len(molecules_xyz)
+    for i in range(nmol):
+        for j in range(i+1,nmol):
+            if not np.array_equal(molecules_atype[i], molecules_atype[j]):
+                if len(molecules_atype[i]) <= len(molecules_atype[j]):
+                    xyz1 = molecules_xyz[i]
+                    atype1 = molecules_atype[i]
+                    xyz2 = molecules_xyz[j]
+                    atype2 = molecules_atype[j]
+                else:
+                    xyz2 = molecules_xyz[i]
+                    atype2 = molecules_atype[i]
+                    xyz1 = molecules_xyz[j]
+                    atype1 = molecules_atype[j]
+                # 
+                # can we speed up here???
+                for k in range(len(atype1)):
+                    diff = xyz2 - xyz1[k,:]
+                    mic_diff, _ = find_mic(diff, cell, pbc=True)
+                    distances = np.linalg.norm(mic_diff, axis=1)
+                    indexes = np.where(distances < rcut)[0]
+                    for good_i in indexes:
+                        r = distances[good_i]
+                        gen_str = f"{atype2[good_i]}_{atype1[k]}" if atype2[good_i] < atype1[k] else f"{atype1[k]}_{atype2[good_i]}"
+                        column_id = column_id_of[gen_str]
+                        A_row[column_id] += 1.0/r**12
+                        A_row[column_id+nA] += -1.0/r**6
+    return A_row
+
+def read_xyzf_compute_Amatrix(filename, n_type_max, rcut):
     try:
-        # we will fit only the energy, so the number of row is the number of configurations
-        # The LJ has the form: Vij = A/r^12-B/r^6
-        #n = 5
-        #column_id_of = mapping_ij_to_column(n)
-        #print (column_id_of)
+        row_list = []
+        bmatrix = []
+        column_id_of = mapping_ij_to_column(n_type_max)
         with open(filename, "rt") as file:
             while True:
                 line = file.readline()
@@ -518,6 +570,7 @@ def read_xyzf(filename, n_type_max):
                 n_atom = int(line.split()[0])
                 line = file.readline().split()
                 cell_vectors, energy = extract_cell_xyzf(line)
+                bmatrix.append(energy)
                 x, y, z, atype, amol = ([] for _ in range(5))
                 for i in range(n_atom):
                     line = file.readline().split()
@@ -528,35 +581,24 @@ def read_xyzf(filename, n_type_max):
                     amol.append(int(line[8]))
                 xyz   = np.column_stack((x, y, z))
                 atype = np.array(atype)
+
+                counts = np.bincount(atype, minlength=n_type_max+1)
+                chem_formular = counts[1:n_type_max+1]
+                chem_formular = np.zeros(n_type_max)
+
                 amol  = np.array(amol)
                 nmol = np.max(amol)
-                molecules_xyz = []
-                molecules_atype = []
-                for i in range(nmol):
-                    indices = np.where(amol == i+1)
-                    xyz0  = xyz[indices]
-                    atype0 = atype[indices]
-                    molecules_xyz.append(xyz0)
-                    molecules_atype.append(atype0)
-                #print (molecules_atype[1])
-                # To do: optimize the speed here
-                for i in range(nmol):
-                    xyz1 = molecules_xyz[i]
-                    atype1 = molecules_atype[i]
-                    for j in range(i+1,nmol):
-                        xyz2 = molecules_xyz[j]
-                        atype2 = molecules_atype[j]
-                        print (xyz1)
-                        print (xyz2)
 
-
-
-
+                molecules_xyz, molecules_atype = identify_molecules(xyz, atype, amol, nmol)
+                Ai = gen_matrix_for_single_config(molecules_xyz, molecules_atype, column_id_of, cell_vectors, rcut, n_type_max)
+                A_row = np.concatenate((Ai,chem_formular))
+                row_list.append(A_row)
+        Amatrix = np.vstack(row_list)
+        bmatrix = np.array(bmatrix)
     except Exception as e:
         print(f"Error reading file '{filename}': {e}")
         return np.array([]), np.array([])
-
-    return 0,1
+    return Amatrix, bmatrix
 
 
 
