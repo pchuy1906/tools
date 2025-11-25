@@ -54,20 +54,23 @@ def main():
     if not os.path.isfile(file_xyzf_path):
         logging.error(f'file xyzf not found: {file_xyzf}')
         return
+    logging.info('Starting reading xyzf file and generate A and b matrix.')
     A_matrix, b_matrix, column_id_of = read_xyzf_compute_A_matrix(file_xyzf_path, n_type_max, rcut, train_forces=True)
 
-    # Filter the A_matrix, remove zero columns
+    logging.info('Filtering A matrix, remove column will all zero values')
     remaining_cols = np.where(~np.all(A_matrix == 0, axis=0))[0]
     filtered_A_matrix = A_matrix[:, remaining_cols]
     inv_column_id_of = {v: k for k, v in column_id_of.items()}
     symbols_remaining_cols = [inv_column_id_of[val] for val in remaining_cols]
+    print (symbols_remaining_cols)
     
+    logging.info('Doing constraint linear-fitting')
     weights = np.ones(len(b_matrix))
     x = lstsq_solver(filtered_A_matrix, b_matrix, weights)
     print_epsilon_sigma(x, symbols_remaining_cols)
 
     epsilon = 0.1
-    sigma = 5.0
+    sigma = 3.0
     x1 = 4.0*epsilon*sigma**12
     x2 = 4.0*epsilon*sigma**6
     x = np.array([x1]*18 + [x2]*18)

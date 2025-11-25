@@ -17,6 +17,8 @@ convert_kbar_2_GPa = bar/GPa
 kcal_per_mol = kcal/mol
 convert_eV_2_kcal_per_mol = eV/kcal_per_mol
 convert_eV_2_Hartree = eV/Hartree
+convert_Hartree_2_kcal_per_mol = Hartree/kcal_per_mol
+convert_Bohr_2_Angstrom = Bohr/Angstrom
 convert_Angstrom_2_Bohr = Angstrom/Bohr
 convert_kcal_per_mol_2_Hartree = kcal_per_mol/Hartree
 
@@ -556,7 +558,9 @@ def identify_molecules(xyz, atype, amol):
         molecules_atype.append(atype0)
     return molecules_xyz, molecules_atype
 
-def gen_matrix_for_single_config(xyz, atype, amol, chem_formular, column_id_of, cell_vectors, rcut, n_type_max, fxyz=None):
+def gen_matrix_for_single_config(xyz, atype, amol, chem_formular, column_id_of, cell_vectors, rcut, n_type_max, energy, fxyz=None):
+
+
 
     # A_matrix has 3 block in the column
     # First block is for part with interaction A/r^12, length nA
@@ -568,9 +572,19 @@ def gen_matrix_for_single_config(xyz, atype, amol, chem_formular, column_id_of, 
 
     # In the row, the order is first energy, then forces of corresponding molecules
     n_rows = 1 + 3*len(xyz)
-    print (n_cols, n_rows)
+
+    # The b_matrix is easy to generate:
+    b_matrix = []
+    b_matrix.append(energy)
+    if fxyz is not None:
+        for i in range(len(fxyz)):
+            b_matrix.append(fxyz[i,0])
+            b_matrix.append(fxyz[i,1])
+            b_matrix.append(fxyz[i,2])
+    b_matrix = np.array(b_matrix)
 
     A_matrix = np.zeros((n_rows, n_cols))
+    A_matrix[0,-n_type_max:] = chem_formular
 
     # decompose into molecules for easy compute interaction energy/forces
     molecules_xyz, molecules_atype = identify_molecules(xyz, atype, amol)
@@ -581,16 +595,13 @@ def gen_matrix_for_single_config(xyz, atype, amol, chem_formular, column_id_of, 
         for j in range(nmol):
             # if two molecules are not the same, do the fit
             if not np.array_equal(molecules_atype[i], molecules_atype[j]):
-                print ("molecules i,j=", i,j)
                 xyz1 = molecules_xyz[i]
                 atype1 = molecules_atype[i]
                 xyz2 = molecules_xyz[j]
                 atype2 = molecules_atype[j]
                 for k in range(len(atype1)):
-                    #print ("molecule-", i, "; atom", k, "; id_atom", id_atom)
                     diff = xyz1[k,:] - xyz2
                     mic_diff, _ = find_mic(diff, cell_vectors, pbc=True)
-                    #print (mic_diff)
                     distances = np.linalg.norm(mic_diff, axis=1)
                     indexes = np.where(distances < rcut)[0]
                     for good_i in indexes:
@@ -610,7 +621,7 @@ def gen_matrix_for_single_config(xyz, atype, amol, chem_formular, column_id_of, 
 
 def read_xyzf_compute_A_matrix(filename, n_type_max, rcut, train_forces=False):
     try:
-        row_list = []
+        A_matrix = []
         b_matrix = []
         column_id_of = mapping_ij_to_column(n_type_max)
         with open(filename, "rt") as file:
@@ -633,29 +644,24 @@ def read_xyzf_compute_A_matrix(filename, n_type_max, rcut, train_forces=False):
                     atype.append(int(line[7]))
                     amol.append(int(line[8]))
                 xyz   = np.column_stack((x, y, z))
-                fxyz   = np.column_stack((x, y, z))
+                fxyz   = np.column_stack((fx, fy, fz)) * convert_Hartree_2_kcal_per_mol/convert_Bohr_2_Angstrom
                 atype = np.array(atype)
                 counts = np.bincount(atype, minlength=n_type_max+1)
                 chem_formular = counts[1:n_type_max+1]
                 chem_formular = np.zeros(n_type_max)
                 amol  = np.array(amol)
 
-                #nmol = np.max(amol)
-                ## decompose into molecules for easy compute interaction energy/forces
-                #molecules_xyz, molecules_fxyz, molecules_atype = identify_molecules(xyz, atype, amol, nmol, fxyz)
+                A_sub, b_sub = gen_matrix_for_single_config(xyz, atype, amol, chem_formular, column_id_of, cell_vectors, rcut, n_type_max, energy, fxyz)
 
-                gen_matrix_for_single_config(xyz, atype, amol, chem_formular, column_id_of, cell_vectors, rcut, n_type_max, fxyz)
+                A_matrix.append(A_sub)
+                b_matrix.append(b_sub)
 
-                #A_row = np.concatenate((Ai,chem_formular))
-                #row_list.append(A_row)
-                #b_matrix.append(energy)
-
-        #A_matrix = np.vstack(row_list)
-        #b_matrix = np.array(b_matrix)
+        A_matrix = np.vstack(A_matrix)
+        b_matrix = np.concatenate(b_matrix)
     except Exception as e:
         print(f"Error reading file '{filename}': {e}")
         return np.array([]), np.array([]), np.array([])
-    return 1,2,3#A_matrix, b_matrix, column_id_of
+    return A_matrix, b_matrix, column_id_of
 
 
 def lstsq_solver(A_matrix, b_matrix, weights):
@@ -664,7 +670,7 @@ def lstsq_solver(A_matrix, b_matrix, weights):
     #b_weighted = b_matrix * W
     #res = lsq_linear(A_weighted, b_weighted, bounds=(0.0, np.inf))
     #res = lsq_linear(A_matrix, b_matrix, bounds=(60.0, np.inf))
-    res = lsq_linear(A_matrix, b_matrix, bounds=(6.0e+03, 9.9e+07))
+    res = lsq_linear(A_matrix, b_matrix, bounds=(200, 500000))
     x = res.x
 
     # Find x using least squares
