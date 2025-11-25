@@ -7,6 +7,11 @@ from typing import Sequence, Any
 from ase.data import atomic_masses, chemical_symbols
 from ase.geometry import find_mic
 
+from numpy.linalg import lstsq
+#from scipy.linalg import lstsq
+from scipy.linalg import svd
+from scipy.optimize import lsq_linear
+
 from ase.units import kcal, mol, Hartree, Bohr, GPa, eV, Angstrom, bar
 convert_kbar_2_GPa = bar/GPa
 kcal_per_mol = kcal/mol
@@ -265,65 +270,81 @@ def read_cell(cell_type, line_cell_x, line_cell_y, line_cell_z):
 
 def write_POSCAR(
     nconf: int,
-    cell9: np.ndarray,
+    cell_vectors: np.ndarray,
     atom_list: Sequence[str],
-    x: np.ndarray,
-    y: np.ndarray,
-    z: np.ndarray,
+    xyz: np.ndarray,
     atype: np.ndarray,
     amol: np.ndarray,
+    rmin_select: float = 2.7,
 ) -> None:
-    poscar_filename = f"POSCAR_{nconf}"
-    ntype_filename = "ntype.dat"
-    order_filename = "LAMMPS_mapping.dat"
-
-    # Reshape cell9 to (3, 3)
-    if cell9.size != 9:
-        logging.error("cell9 must have exactly 9 elements.")
-        return
-    cell_matrix = cell9.reshape((3, 3))
-
-    # Get unique symbols and their counts
-    syms, counts_syms = np.unique(atom_list, return_counts=True)
-
-    new_order = []
-    new_atype = []
-    new_amol = []
-    # Write POSCAR file
-    with open(poscar_filename, "w") as f_poscar:
-        f_poscar.write("COMMENT\n")
-        f_poscar.write(f"{1.0:15.9f}\n")
-        for vec in cell_matrix:
-            f_poscar.write(f"{vec[0]:20.15f} {vec[1]:20.15f} {vec[2]:20.15f}\n")
-        f_poscar.write(" " + " ".join(syms) + "\n")
-        f_poscar.write(" " + " ".join(str(count) for count in counts_syms) + "\n")
-        f_poscar.write("Direct\n")
-
-        # Transform coordinates to fractional
-        xyz = np.column_stack((x, y, z))
-        frac_xyz = np.dot(xyz, np.linalg.inv(cell_matrix))
-
-        # Write atomic positions grouped by element
-        natom = len(x)
-        for sym in syms:
-            for k in range(natom):
-                if atom_list[k] == sym:
-                    new_order.append(k)
-                    new_atype.append(atype[k])
-                    new_amol.append(amol[k])
-                    f_poscar.write(
-                        f"{frac_xyz[k,0]:20.15f} {frac_xyz[k,1]:20.15f} {frac_xyz[k,2]:20.15f}\n"
-                    )
-
-    # Write ntype.dat file
-    with open(ntype_filename, "w") as f_ntype:
-        for sym in syms:
-            f_ntype.write(f"{sym}\n")
-
-    # Write LAMMPS IDs file
-    with open("LAMMPS_ID_order_type_mol.dat", "w") as file:
-        for idx, (order, atype, amol) in enumerate(zip(new_order, new_atype, new_amol)):
-            file.write(f"{idx} {order} {atype} {amol}\n")
+    nmol = np.max(amol)
+    molecules_xyz, molecules_atype = identify_molecules(xyz, atype, amol, nmol, fxyz=None)
+    rmin = 100.0
+    for i in range(nmol):
+        for j in range(i+1,nmol):
+            if len(molecules_atype[i]) <= len(molecules_atype[j]):
+                xyz1 = molecules_xyz[i]
+                atype1 = molecules_atype[i]
+                xyz2 = molecules_xyz[j]
+                atype2 = molecules_atype[j]
+            else:
+                xyz2 = molecules_xyz[i]
+                atype2 = molecules_atype[i]
+                xyz1 = molecules_xyz[j]
+                atype1 = molecules_atype[j]
+            # 
+            # can we speed up here???
+            for k in range(len(atype1)):
+                diff = xyz2 - xyz1[k,:]
+                mic_diff, _ = find_mic(diff, cell_vectors, pbc=True)
+                distances = np.linalg.norm(mic_diff, axis=1)
+                if rmin > np.min(distances):
+                    rmin = np.min(distances)
+    if rmin > rmin_select:
+        poscar_filename = f"POSCAR_{nconf}"
+        ntype_filename = "ntype.dat"
+        order_filename = "LAMMPS_mapping.dat"
+    
+        # Get unique symbols and their counts
+        syms, counts_syms = np.unique(atom_list, return_counts=True)
+    
+        new_order = []
+        new_atype = []
+        new_amol = []
+        # Write POSCAR file
+        with open(poscar_filename, "w") as f_poscar:
+            f_poscar.write("COMMENT\n")
+            f_poscar.write(f"{1.0:15.9f}\n")
+            for vec in cell_vectors:
+                f_poscar.write(f"{vec[0]:20.15f} {vec[1]:20.15f} {vec[2]:20.15f}\n")
+            f_poscar.write(" " + " ".join(syms) + "\n")
+            f_poscar.write(" " + " ".join(str(count) for count in counts_syms) + "\n")
+            f_poscar.write("Direct\n")
+    
+            # Transform coordinates to fractional
+            frac_xyz = np.dot(xyz, np.linalg.inv(cell_vectors))
+    
+            # Write atomic positions grouped by element
+            natom = len(atom_list)
+            for sym in syms:
+                for k in range(natom):
+                    if atom_list[k] == sym:
+                        new_order.append(k)
+                        new_atype.append(atype[k])
+                        new_amol.append(amol[k])
+                        f_poscar.write(
+                            f"{frac_xyz[k,0]:20.15f} {frac_xyz[k,1]:20.15f} {frac_xyz[k,2]:20.15f}\n"
+                        )
+    
+        # Write ntype.dat file
+        with open(ntype_filename, "w") as f_ntype:
+            for sym in syms:
+                f_ntype.write(f"{sym}\n")
+    
+        # Write LAMMPS IDs file
+        with open("LAMMPS_ID_order_type_mol.dat", "w") as file:
+            for idx, (order, atype, amol) in enumerate(zip(new_order, new_atype, new_amol)):
+                file.write(f"{idx} {order} {atype} {amol}\n")
 
 def read_lammps_dump(filename, element_symbols, potential_energies=None, export_stress=None, lammps_units=None):
     """
@@ -416,10 +437,11 @@ def read_lammps_dump(filename, element_symbols, potential_energies=None, export_
 
             atom_list = element_symbols[atype-1]
             nconf += 1
+            cell_vectors = cell9.reshape((3, 3))
+            positions = np.column_stack((x, y, z))
+
             if potential_energies is not None:
-                cell_vectors = cell9.reshape((3, 3))
                 energy = potential_energies[nconf-1]
-                positions = np.column_stack((x, y, z))
                 forces = np.column_stack((fx, fy, fz))
                 # To be included: read stress
                 stresses = None
@@ -444,7 +466,7 @@ def read_lammps_dump(filename, element_symbols, potential_energies=None, export_
                 )
 
             else:
-                write_POSCAR(nconf, cell9, atom_list, x, y, z, atype, amol)
+                write_POSCAR(nconf, cell_vectors, atom_list, positions, atype, amol)
 
 def read_lammps_log(filename):
     """
@@ -504,16 +526,28 @@ def mapping_ij_to_column(n_type_max):
     column_str = []
     for i in range(n_type_max):
         for j in range(i+1,n_type_max):
-            tmp_str = str(i+1)+"_"+str(j+1)
+            tmp_str = "A_"+str(i+1)+"_"+str(j+1)
             column_id.append(ncount)
             column_str.append(tmp_str)
             ncount += 1
+    for i in range(n_type_max):
+        for j in range(i+1,n_type_max):
+            tmp_str = "B_"+str(i+1)+"_"+str(j+1)
+            column_id.append(ncount)
+            column_str.append(tmp_str)
+            ncount += 1
+    for i in range(n_type_max):
+        tmp_str = "E_"+str(i+1)
+        column_id.append(ncount)
+        column_str.append(tmp_str)
+        ncount += 1
     column_id_of = dict(zip(column_str, column_id))
     return column_id_of
 
-def identify_molecules(xyz, atype, amol, nmol):
+def identify_molecules(xyz, atype, amol):
     molecules_xyz = []
     molecules_atype = []
+    nmol = np.max(amol)
     for i in range(nmol):
         indices = np.where(amol == i+1)
         xyz0  = xyz[indices]
@@ -522,45 +556,62 @@ def identify_molecules(xyz, atype, amol, nmol):
         molecules_atype.append(atype0)
     return molecules_xyz, molecules_atype
 
-def gen_matrix_for_single_config(molecules_xyz, molecules_atype, column_id_of, cell, rcut, n_type_max):
+def gen_matrix_for_single_config(xyz, atype, amol, chem_formular, column_id_of, cell_vectors, rcut, n_type_max, fxyz=None):
+
+    # A_matrix has 3 block in the column
+    # First block is for part with interaction A/r^12, length nA
+    # Second block is for part with interaction -B/r^6, length nB
+    # Third block is for atom energies, length n_type_max
     nA = n_type_max*(n_type_max-1)//2
     nB = nA
-    nvar = nA + nB
-    A_row = np.zeros(nvar)
+    n_cols = nA + nB + n_type_max
 
+    # In the row, the order is first energy, then forces of corresponding molecules
+    n_rows = 1 + 3*len(xyz)
+    print (n_cols, n_rows)
+
+    A_matrix = np.zeros((n_rows, n_cols))
+
+    # decompose into molecules for easy compute interaction energy/forces
+    molecules_xyz, molecules_atype = identify_molecules(xyz, atype, amol)
+
+    id_atom = 0
     nmol = len(molecules_xyz)
     for i in range(nmol):
-        for j in range(i+1,nmol):
+        for j in range(nmol):
+            # if two molecules are not the same, do the fit
             if not np.array_equal(molecules_atype[i], molecules_atype[j]):
-                if len(molecules_atype[i]) <= len(molecules_atype[j]):
-                    xyz1 = molecules_xyz[i]
-                    atype1 = molecules_atype[i]
-                    xyz2 = molecules_xyz[j]
-                    atype2 = molecules_atype[j]
-                else:
-                    xyz2 = molecules_xyz[i]
-                    atype2 = molecules_atype[i]
-                    xyz1 = molecules_xyz[j]
-                    atype1 = molecules_atype[j]
-                # 
-                # can we speed up here???
+                print ("molecules i,j=", i,j)
+                xyz1 = molecules_xyz[i]
+                atype1 = molecules_atype[i]
+                xyz2 = molecules_xyz[j]
+                atype2 = molecules_atype[j]
                 for k in range(len(atype1)):
-                    diff = xyz2 - xyz1[k,:]
-                    mic_diff, _ = find_mic(diff, cell, pbc=True)
+                    #print ("molecule-", i, "; atom", k, "; id_atom", id_atom)
+                    diff = xyz1[k,:] - xyz2
+                    mic_diff, _ = find_mic(diff, cell_vectors, pbc=True)
+                    #print (mic_diff)
                     distances = np.linalg.norm(mic_diff, axis=1)
                     indexes = np.where(distances < rcut)[0]
                     for good_i in indexes:
                         r = distances[good_i]
-                        gen_str = f"{atype2[good_i]}_{atype1[k]}" if atype2[good_i] < atype1[k] else f"{atype1[k]}_{atype2[good_i]}"
+                        gen_str = f"A_{atype2[good_i]}_{atype1[k]}" if atype2[good_i] < atype1[k] else f"A_{atype1[k]}_{atype2[good_i]}"
                         column_id = column_id_of[gen_str]
-                        A_row[column_id] += 1.0/r**12
-                        A_row[column_id+nA] += -1.0/r**6
-    return A_row
+                        A_matrix[0,column_id] += 1.0/r**12
+                        A_matrix[0,column_id+nA] += -1.0/r**6
+                        A_matrix[3*id_atom+1,column_id] += 12.0/r**13 * mic_diff[good_i][0]/r
+                        A_matrix[3*id_atom+2,column_id] += 12.0/r**13 * mic_diff[good_i][1]/r
+                        A_matrix[3*id_atom+3,column_id] += 12.0/r**13 * mic_diff[good_i][2]/r
+                        A_matrix[3*id_atom+1,column_id+nA] += -6.0/r**7 * mic_diff[good_i][0]/r
+                        A_matrix[3*id_atom+2,column_id+nA] += -6.0/r**7 * mic_diff[good_i][1]/r
+                        A_matrix[3*id_atom+3,column_id+nA] += -6.0/r**7 * mic_diff[good_i][2]/r
+                    id_atom += 1
+    return A_matrix, b_matrix
 
-def read_xyzf_compute_Amatrix(filename, n_type_max, rcut):
+def read_xyzf_compute_A_matrix(filename, n_type_max, rcut, train_forces=False):
     try:
         row_list = []
-        bmatrix = []
+        b_matrix = []
         column_id_of = mapping_ij_to_column(n_type_max)
         with open(filename, "rt") as file:
             while True:
@@ -570,35 +621,87 @@ def read_xyzf_compute_Amatrix(filename, n_type_max, rcut):
                 n_atom = int(line.split()[0])
                 line = file.readline().split()
                 cell_vectors, energy = extract_cell_xyzf(line)
-                bmatrix.append(energy)
-                x, y, z, atype, amol = ([] for _ in range(5))
+                x, y, z, fx, fy, fz, atype, amol = ([] for _ in range(8))
                 for i in range(n_atom):
                     line = file.readline().split()
                     x.append(float(line[1]))
                     y.append(float(line[2]))
                     z.append(float(line[3]))
+                    fx.append(float(line[4]))
+                    fy.append(float(line[5]))
+                    fz.append(float(line[6]))
                     atype.append(int(line[7]))
                     amol.append(int(line[8]))
                 xyz   = np.column_stack((x, y, z))
+                fxyz   = np.column_stack((x, y, z))
                 atype = np.array(atype)
-
                 counts = np.bincount(atype, minlength=n_type_max+1)
                 chem_formular = counts[1:n_type_max+1]
                 chem_formular = np.zeros(n_type_max)
-
                 amol  = np.array(amol)
-                nmol = np.max(amol)
 
-                molecules_xyz, molecules_atype = identify_molecules(xyz, atype, amol, nmol)
-                Ai = gen_matrix_for_single_config(molecules_xyz, molecules_atype, column_id_of, cell_vectors, rcut, n_type_max)
-                A_row = np.concatenate((Ai,chem_formular))
-                row_list.append(A_row)
-        Amatrix = np.vstack(row_list)
-        bmatrix = np.array(bmatrix)
+                #nmol = np.max(amol)
+                ## decompose into molecules for easy compute interaction energy/forces
+                #molecules_xyz, molecules_fxyz, molecules_atype = identify_molecules(xyz, atype, amol, nmol, fxyz)
+
+                gen_matrix_for_single_config(xyz, atype, amol, chem_formular, column_id_of, cell_vectors, rcut, n_type_max, fxyz)
+
+                #A_row = np.concatenate((Ai,chem_formular))
+                #row_list.append(A_row)
+                #b_matrix.append(energy)
+
+        #A_matrix = np.vstack(row_list)
+        #b_matrix = np.array(b_matrix)
     except Exception as e:
         print(f"Error reading file '{filename}': {e}")
-        return np.array([]), np.array([])
-    return Amatrix, bmatrix
+        return np.array([]), np.array([]), np.array([])
+    return 1,2,3#A_matrix, b_matrix, column_id_of
+
+
+def lstsq_solver(A_matrix, b_matrix, weights):
+    #W = np.sqrt(weights)
+    #A_weighted = A_matrix * W[:, np.newaxis]
+    #b_weighted = b_matrix * W
+    #res = lsq_linear(A_weighted, b_weighted, bounds=(0.0, np.inf))
+    #res = lsq_linear(A_matrix, b_matrix, bounds=(60.0, np.inf))
+    res = lsq_linear(A_matrix, b_matrix, bounds=(6.0e+03, 9.9e+07))
+    x = res.x
+
+    # Find x using least squares
+    #x, residuals, rank, s = lstsq(A_matrix, b_matrix)
+    #x, residuals, rank, s = lstsq(A_matrix, b_matrix, rcond=None)
+    print (x)
+    print (len(x))
+    Ax = A_matrix @ x
+    rmse = np.sqrt(np.mean((Ax - b_matrix)**2))
+    print ("rmse=",rmse)
+    output = np.column_stack((b_matrix, Ax))
+    np.savetxt('parity.dat', output, fmt='%.6f', delimiter=' ')
+    return x
+
+
+def print_epsilon_sigma(x, symbols_remaining_cols):
+    if len(x) != len(symbols_remaining_cols):
+        print ("error")
+        sys.exit(1)
+    else:
+        # Find all CC codes for A and B
+        A_codes = [s[2:] for s in symbols_remaining_cols if s.startswith("A_")]
+        B_codes = [s[2:] for s in symbols_remaining_cols if s.startswith("B_")]
+        # Find the intersection of CC codes present in both A and B
+        common_codes = set(A_codes) & set(B_codes)
+        # For each CC, find the index of "A_$CC" and "B_$CC"
+        indices = []
+        for cc in sorted(common_codes):
+            a_label = f"A_{cc}"
+            b_label = f"B_{cc}"
+            a_idx = symbols_remaining_cols.index(a_label)
+            b_idx = symbols_remaining_cols.index(b_label)
+            An = x[a_idx] ** (1/6)
+            Bn = x[b_idx]
+            sigma = (An/Bn) ** (1/6)
+            epsilon = Bn/(4.0*(An/Bn))
+            #print (cc, epsilon, sigma)
 
 
 
