@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """
-Script to set up VASP calculations from LAMMPS dump and data files.
+-----------------------------------------------------------------------------
+Author: Huy Pham
+Email:  pham20@llnl.gov
+Description:
+    Main function for: 
+        + setting up VASP calculations from LAMMPS dump file
+        + export to xyzf format from LAMMPS dump/log files
+-----------------------------------------------------------------------------
 """
 
 import os

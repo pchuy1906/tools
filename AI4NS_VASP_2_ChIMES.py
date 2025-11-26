@@ -1,3 +1,13 @@
+#!/usr/bin/env python3
+"""
+-----------------------------------------------------------------------------
+Author: Huy Pham
+Email:  pham20@llnl.gov
+Description:
+    Convert VASP to xyzf format, keeping track of LAMMPS atom types.
+-----------------------------------------------------------------------------
+"""
+
 import os
 import numpy as np
 import argparse

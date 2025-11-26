@@ -1,3 +1,13 @@
+#!/usr/bin/env python3
+"""
+-----------------------------------------------------------------------------
+Author: Huy Pham
+Email:  pham20@llnl.gov
+Description:
+    A collection of helper functions used in the AI4NS project
+-----------------------------------------------------------------------------
+"""
+
 import os
 import numpy as np
 import argparse

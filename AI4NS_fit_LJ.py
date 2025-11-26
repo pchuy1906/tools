@@ -1,11 +1,17 @@
+#!/usr/bin/env python3
+"""
+-----------------------------------------------------------------------------
+Author: Huy Pham
+Email:  pham20@llnl.gov
+Description:
+    Main function for bounded least-squares fitting of Lennard-Jones parameters.
+-----------------------------------------------------------------------------
+"""
+
 import os
 import numpy as np
 import argparse
 import logging
-
-#from scipy.linalg import lstsq
-#from scipy.linalg import svd
-#from scipy.optimize import lsq_linear
 
 from AI4NS_utils import read_xyzf_compute_A_matrix, lstsq_solver, print_epsilon_sigma
 
