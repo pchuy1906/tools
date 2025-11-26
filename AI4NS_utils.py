@@ -202,7 +202,6 @@ def extract_masses(filename):
     f.close()
     return np.array(masses)
 
-
 def match_mass_to_element_ase(masses, tol=0.01):
     """
     Matches each mass in the array to its element symbol using ASE data.
@@ -225,7 +224,6 @@ def match_mass_to_element_ase(masses, tol=0.01):
         if not found:
             element_types.append('Unknown')
     return np.array(element_types)
-
 
 def read_cell(cell_type, line_cell_x, line_cell_y, line_cell_z):
     """
@@ -684,7 +682,16 @@ def gen_matrix_for_single_config(
                 atype1 = molecules_atype[i]
                 xyz2 = molecules_xyz[j]
                 atype2 = molecules_atype[j]
+
+                if i==0:
+                    origin = 0
+                else:
+                    origin = 0
+                    for ii in range(i):
+                        origin += len(molecules_atype[ii])
+
                 for k, atom_type_k in enumerate(atype1):
+                    atom_counter = origin + k
                     diff = xyz1[k, :] - xyz2
                     mic_diff, _ = find_mic(diff, cell_vectors, pbc=True)
                     distances = np.linalg.norm(mic_diff, axis=1)
@@ -703,21 +710,14 @@ def gen_matrix_for_single_config(
                         A_matrix[0, col_id + nA] += -0.5 / r ** 6
                         # Force terms
                         if fxyz is not None:
-                            force_prefactors = [
-                                (12.0 / r ** 13, col_id),
-                                (-6.0 / r ** 7, col_id + nA)
-                            ]
-                            for prefactor, column in force_prefactors:
-                                for dim in range(3):  # x, y, z
-                                    row_idx = 3 * atom_counter + 1 + dim
-                                    A_matrix[row_idx, column] += prefactor * mic_diff[idx][dim] / r
-                    atom_counter += 1
+                            A_matrix[3*atom_counter+1,col_id] += 12.0/r**13 * mic_diff[idx][0]/r
+                            A_matrix[3*atom_counter+2,col_id] += 12.0/r**13 * mic_diff[idx][1]/r
+                            A_matrix[3*atom_counter+3,col_id] += 12.0/r**13 * mic_diff[idx][2]/r
+                            A_matrix[3*atom_counter+1,col_id+nA] += -6.0/r**7 * mic_diff[idx][0]/r
+                            A_matrix[3*atom_counter+2,col_id+nA] += -6.0/r**7 * mic_diff[idx][1]/r
+                            A_matrix[3*atom_counter+3,col_id+nA] += -6.0/r**7 * mic_diff[idx][2]/r
 
     return A_matrix, b_matrix
-
-
-from typing import Tuple, Dict
-import numpy as np
 
 def read_xyzf_compute_A_matrix(
     filename: str,
@@ -750,6 +750,7 @@ def read_xyzf_compute_A_matrix(
 
         A_matrix_list = []
         b_matrix_list = []
+        label_energy_forces = []
         column_id_of = mapping_ij_to_column(n_type_max)
         nconf = 0
 
@@ -760,6 +761,13 @@ def read_xyzf_compute_A_matrix(
                     break  # End of file
 
                 n_atom = int(line.split()[0])
+                label_energy_forces.append("energy_"+str(nconf))
+                if train_forces:
+                    for i in range(n_atom):
+                        label_energy_forces.append("force_"+str(nconf))
+                        label_energy_forces.append("force_"+str(nconf))
+                        label_energy_forces.append("force_"+str(nconf))
+
                 header_line = file.readline().split()
                 cell_vectors, energy = extract_cell_xyzf(header_line)
 
@@ -806,10 +814,84 @@ def read_xyzf_compute_A_matrix(
         print(f"Error reading file '{filename}': {e}")
         return np.array([]), np.array([]), {}
 
-    return A_matrix, b_matrix, column_id_of
+    return A_matrix, b_matrix, column_id_of, label_energy_forces
 
-def lstsq_solver(A_matrix, b_matrix, weights, symbols_remaining_cols):
-    print (symbols_remaining_cols)
+def lstsq_solver(A_matrix, b_matrix, weights, symbols_remaining_cols, label_energy_forces):
+    """
+    Solve a weighted linear least-squares problem with bounds and export parity plots.
+
+    Parameters
+    ----------
+    A_matrix : ndarray
+        Design matrix (N x M).
+    b_matrix : ndarray
+        Target vector (N).
+    weights : ndarray
+        Per-sample weights.
+    symbols_remaining_cols : list of str
+        Column names used to determine parameter groups (A_, B_, E_).
+    label_energy_forces : list of str
+        Labels describing whether each row corresponds to energy or force.
+
+    Returns
+    -------
+    x : ndarray
+        Fitted parameter vector.
+    """
+
+    # --- Count parameters by prefix ---
+    count_A = sum(s.startswith("A_") for s in symbols_remaining_cols)
+    count_B = sum(s.startswith("B_") for s in symbols_remaining_cols)
+    count_E = sum(s.startswith("E_") for s in symbols_remaining_cols)
+
+    # --- Bounds for A, B, E groups ---
+    lower_bounds = np.concatenate([
+        np.full(count_A, 0.001 * 2**12),
+        np.full(count_B, 0.001 * 2**6),
+        np.full(count_E, -500.0)
+    ])
+
+    upper_bounds = np.concatenate([
+        np.full(count_A, 0.4 * 4**12),
+        np.full(count_B, 0.4 * 4**6),
+        np.full(count_E, 500.0)
+    ])
+
+    # --- Weight matrices ---
+    W = np.sqrt(weights)
+    A_weighted = A_matrix * W[:, None]
+    b_weighted = b_matrix * W
+
+    # --- Solve bounded least squares ---
+    res = lsq_linear(A_weighted, b_weighted, bounds=(lower_bounds, upper_bounds))
+    x = res.x
+
+    # --- Reporting ---
+    print("Fitted atomic energies:")
+    print(x[-count_E:])
+
+    Ax = A_matrix @ x
+    rmse = np.sqrt(np.mean((Ax - b_matrix)**2))
+    print(f"RMSE = {rmse:.6f}")
+
+    output = np.column_stack((b_matrix, Ax))
+
+    # --- Save parity plots for energy/force ---
+    keywords = ("energy", "force")
+
+    for key in keywords:
+        indexes = [i for i, v in enumerate(label_energy_forces) if key in v.lower()]
+        if indexes:
+            np.savetxt(
+                f"parity_{key}.dat",
+                output[indexes],
+                fmt="%.6f",
+                delimiter=" "
+            )
+
+    return x
+
+def _lstsq_solver(A_matrix, b_matrix, weights, symbols_remaining_cols, label_energy_forces):
     count_A = sum(s.startswith("A_") for s in symbols_remaining_cols)
     count_B = sum(s.startswith("B_") for s in symbols_remaining_cols)
     count_E = sum(s.startswith("E_") for s in symbols_remaining_cols)
@@ -824,16 +906,20 @@ def lstsq_solver(A_matrix, b_matrix, weights, symbols_remaining_cols):
     W = np.sqrt(weights)
     A_weighted = A_matrix * W[:, np.newaxis]
     b_weighted = b_matrix * W
-    print (lower_bounds)
-    print (upper_bounds)
     res = lsq_linear(A_weighted, b_weighted, bounds=(lower_bounds, upper_bounds))
     x = res.x
+    print ("the fitted atomic energy:")
     print (x[-count_E:])
     Ax = A_matrix @ x
     rmse = np.sqrt(np.mean((Ax - b_matrix)**2))
     print ("rmse=",rmse)
     output = np.column_stack((b_matrix, Ax))
-    np.savetxt('parity.dat', output, fmt='%.6f', delimiter=' ')
+
+    for key_words in "energy", "force":
+        indexes = [i for i, v in enumerate(label_energy_forces) if key_words in v]
+        if indexes:
+            np.savetxt(f'parity_{key_words}.dat', output[indexes], fmt='%.6f', delimiter=' ')
+
     return x
 
 def print_epsilon_sigma(x: List[float], symbols_remaining_cols: List[str]) -> None:
