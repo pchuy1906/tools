@@ -3,13 +3,12 @@ import numpy as np
 import argparse
 import logging
 import sys
-from typing import Sequence, Any
+
+from typing import Sequence, Any, Tuple, Optional, List, Dict
+
 from ase.data import atomic_masses, chemical_symbols
 from ase.geometry import find_mic
 
-from numpy.linalg import lstsq
-#from scipy.linalg import lstsq
-from scipy.linalg import svd
 from scipy.optimize import lsq_linear
 
 from ase.units import kcal, mol, Hartree, Bohr, GPa, eV, Angstrom, bar
@@ -279,6 +278,21 @@ def write_POSCAR(
     amol: np.ndarray,
     rmin_select: float = 2.7,
 ) -> None:
+    """
+    Writes a POSCAR file for VASP from molecular configuration data.
+
+    Parameters:
+        nconf (int): Configuration number, used for file naming.
+        cell_vectors (np.ndarray): 3x3 array of cell vectors.
+        atom_list (Sequence[str]): List of atom symbols (e.g., ['H', 'O']).
+        xyz (np.ndarray): Nx3 array of atomic coordinates.
+        atype (np.ndarray): N array of atom types (integer indices).
+        amol (np.ndarray): N array of molecule indices.
+        rmin_select (float, optional): Minimum allowed distance between molecules to write POSCAR.
+    
+    Returns:
+        None. Writes POSCAR and related files to disk.
+    """
     nmol = np.max(amol)
     molecules_xyz, molecules_atype = identify_molecules(xyz, atype, amol, nmol, fxyz=None)
     rmin = 100.0
@@ -295,7 +309,6 @@ def write_POSCAR(
                 xyz1 = molecules_xyz[j]
                 atype1 = molecules_atype[j]
             # 
-            # can we speed up here???
             for k in range(len(atype1)):
                 diff = xyz2 - xyz1[k,:]
                 mic_diff, _ = find_mic(diff, cell_vectors, pbc=True)
@@ -513,183 +526,309 @@ def read_lammps_log(filename):
         return np.array([])
     return lammps_units, np.array(potential_energies)
 
-def extract_cell_xyzf(line):
-    if line[0]=="NON_ORTHO":
-        cell_vectors = [float(line[i]) for i in range(1,10)]
-        cell_vectors = np.array(cell_vectors)
-        cell_vectors = cell_vectors.reshape((3, 3))
-        if len(line)==11:
-            energy = float(line[10])
+def extract_cell_xyzf(line: Sequence[str]) -> Tuple[np.ndarray, Optional[float]]:
+    """
+    Extracts cell vectors and energy from a line of data.
+
+    Parameters:
+        line (Sequence[str]): Input data line, expected to contain cell vector information.
+            Format: ["NON_ORTHO", v1, v2, ..., v9, (optional: energy)]
+
+    Returns:
+        Tuple[np.ndarray, Optional[float]]: A tuple containing:
+            - cell_vectors (np.ndarray): 3x3 array of cell vectors.
+            - energy (float or None): Energy value if present, otherwise None.
+    """
+    cell_vectors = None
+    energy = None
+
+    if line[0] == "NON_ORTHO":
+        try:
+            cell_vectors = np.array([float(line[i]) for i in range(1, 10)]).reshape((3, 3))
+        except (ValueError, IndexError) as e:
+            raise ValueError(f"Error parsing cell vectors: {e}")
+
+        if len(line) == 11:
+            try:
+                energy = float(line[10])
+            except ValueError:
+                raise ValueError(f"Error parsing energy value: {line[10]}")
+
     return cell_vectors, energy
 
-def mapping_ij_to_column(n_type_max):
-    ncount = 0
-    column_id = []
-    column_str = []
-    for i in range(n_type_max):
-        for j in range(i+1,n_type_max):
-            tmp_str = "A_"+str(i+1)+"_"+str(j+1)
-            column_id.append(ncount)
-            column_str.append(tmp_str)
-            ncount += 1
-    for i in range(n_type_max):
-        for j in range(i+1,n_type_max):
-            tmp_str = "B_"+str(i+1)+"_"+str(j+1)
-            column_id.append(ncount)
-            column_str.append(tmp_str)
-            ncount += 1
-    for i in range(n_type_max):
-        tmp_str = "E_"+str(i+1)
-        column_id.append(ncount)
-        column_str.append(tmp_str)
-        ncount += 1
-    column_id_of = dict(zip(column_str, column_id))
-    return column_id_of
+def mapping_ij_to_column(n_type_max: int) -> dict:
+    """
+    Generates a mapping from interaction types to column indices.
 
-def identify_molecules(xyz, atype, amol):
+    For each pair (i, j) where i < j and for each type i:
+        - "A_i_j" and "B_i_j" are generated for pairs.
+        - "E_i" is generated for each type.
+
+    Parameters:
+        n_type_max (int): The maximum number of types.
+
+    Returns:
+        dict: Dictionary mapping interaction type strings to column indices.
+    """
+    column_map = {}
+    column_counter = 0
+
+    # Generate "A_i_j" and "B_i_j" for each unique pair (i, j)
+    for prefix in ["A", "B"]:
+        for i in range(n_type_max):
+            for j in range(i + 1, n_type_max):
+                key = f"{prefix}_{i + 1}_{j + 1}"
+                column_map[key] = column_counter
+                column_counter += 1
+
+    # Generate "E_i" for each type
+    for i in range(n_type_max):
+        key = f"E_{i + 1}"
+        column_map[key] = column_counter
+        column_counter += 1
+
+    return column_map
+
+def identify_molecules(
+    xyz: np.ndarray,
+    atype: np.ndarray,
+    amol: np.ndarray
+) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+    """
+    Identifies and groups atomic coordinates and types by molecule.
+
+    Parameters:
+        xyz (np.ndarray): Array of atomic coordinates, shape (N, 3).
+        atype (np.ndarray): Array of atomic types, shape (N,).
+        amol (np.ndarray): Array of molecule indices, shape (N,).
+
+    Returns:
+        Tuple[List[np.ndarray], List[np.ndarray]]:
+            - molecules_xyz: List of arrays, each containing the coordinates of atoms in a molecule.
+            - molecules_atype: List of arrays, each containing the types of atoms in a molecule.
+    """
     molecules_xyz = []
     molecules_atype = []
-    nmol = np.max(amol)
+    nmol = int(np.max(amol))
+
     for i in range(nmol):
-        indices = np.where(amol == i+1)
-        xyz0  = xyz[indices]
-        atype0 = atype[indices]
-        molecules_xyz.append(xyz0)
-        molecules_atype.append(atype0)
+        indices = np.where(amol == i + 1)[0]
+        xyz_molecule = xyz[indices]
+        atype_molecule = atype[indices]
+        molecules_xyz.append(xyz_molecule)
+        molecules_atype.append(atype_molecule)
+
     return molecules_xyz, molecules_atype
 
-def gen_matrix_for_single_config(xyz, atype, amol, chem_formular, column_id_of, cell_vectors, rcut, n_type_max, energy, fxyz=None):
+def gen_matrix_for_single_config(
+    xyz: np.ndarray,
+    atype: np.ndarray,
+    amol: np.ndarray,
+    chem_formular: np.ndarray,
+    column_id_of: Dict[str, int],
+    cell_vectors: np.ndarray,
+    rcut: float,
+    n_type_max: int,
+    energy: float,
+    fxyz: Optional[np.ndarray] = None
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Generates the A and b matrices for a single molecular configuration.
 
-    # A_matrix has 3 block in the column
-    # First block is for part with interaction A/r^12, length nA
-    # Second block is for part with interaction -B/r^6, length nB
-    # Third block is for atom energies, length n_type_max
-    nA = n_type_max*(n_type_max-1)//2
+    The A matrix encodes interaction terms and atomic energies; the b matrix encodes target energy and optional forces.
+
+    Parameters:
+        xyz (np.ndarray): Atomic coordinates, shape (N_atoms, 3).
+        atype (np.ndarray): Atomic types, shape (N_atoms,).
+        amol (np.ndarray): Molecule indices for each atom, shape (N_atoms,).
+        chem_formular (np.ndarray): Chemical formula, shape (n_type_max,).
+        column_id_of (Dict[str, int]): Mapping from interaction string to column index.
+        cell_vectors (np.ndarray): Cell vectors, shape (3, 3).
+        rcut (float): Cutoff radius for interactions.
+        n_type_max (int): Number of atom types.
+        energy (float): Target energy value.
+        fxyz (Optional[np.ndarray]): Atomic forces, shape (N_atoms, 3), optional.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: (A_matrix, b_matrix)
+            - A_matrix: Matrix of interaction terms and atomic energies.
+            - b_matrix: Target energy and forces.
+    """
+    nA = n_type_max * (n_type_max - 1) // 2
     nB = nA
     n_cols = nA + nB + n_type_max
 
-    # In the row, the order is first energy, then forces of corresponding molecules
-    if fxyz is not None:
-        n_rows = 1 + 3*len(xyz)
-    else:
-        n_rows = 1
+    n_atoms = len(xyz)
+    n_rows = 1 + 3 * n_atoms if fxyz is not None else 1
 
-    # The b_matrix is easy to generate:
-    b_matrix = []
-    b_matrix.append(energy)
+    # Initialize b_matrix: first element is energy, followed by force components if provided
+    b_matrix = [energy]
     if fxyz is not None:
-        for i in range(len(fxyz)):
-            b_matrix.append(fxyz[i,0])
-            b_matrix.append(fxyz[i,1])
-            b_matrix.append(fxyz[i,2])
+        b_matrix.extend(fxyz.flatten())
     b_matrix = np.array(b_matrix)
 
+    # Initialize A_matrix
     A_matrix = np.zeros((n_rows, n_cols))
-    A_matrix[0,-n_type_max:] = chem_formular
+    # Set chemical formula in the last n_type_max columns of the first row
+    A_matrix[0, -n_type_max:] = chem_formular
 
-    # decompose into molecules for easy compute interaction energy/forces
+    # Group atoms by molecule
     molecules_xyz, molecules_atype = identify_molecules(xyz, atype, amol)
 
-    id_atom = 0
+    atom_counter = 0
     nmol = len(molecules_xyz)
     for i in range(nmol):
         for j in range(nmol):
-            # if two molecules are not the same, do the fit
             if not np.array_equal(molecules_atype[i], molecules_atype[j]):
                 xyz1 = molecules_xyz[i]
                 atype1 = molecules_atype[i]
                 xyz2 = molecules_xyz[j]
                 atype2 = molecules_atype[j]
-                for k in range(len(atype1)):
-                    diff = xyz1[k,:] - xyz2
+                for k, atom_type_k in enumerate(atype1):
+                    diff = xyz1[k, :] - xyz2
                     mic_diff, _ = find_mic(diff, cell_vectors, pbc=True)
                     distances = np.linalg.norm(mic_diff, axis=1)
-                    indexes = np.where(distances < rcut)[0]
-                    for good_i in indexes:
-                        r = distances[good_i]
-                        gen_str = f"A_{atype2[good_i]}_{atype1[k]}" if atype2[good_i] < atype1[k] else f"A_{atype1[k]}_{atype2[good_i]}"
-                        column_id = column_id_of[gen_str]
-                        A_matrix[0,column_id] += 0.5/r**12
-                        A_matrix[0,column_id+nA] += -0.5/r**6
+                    valid_indices = np.where(distances < rcut)[0]
+                    for idx in valid_indices:
+                        r = distances[idx]
+                        atom_type_j = atype2[idx]
+                        # Ensure consistent ordering for interaction string
+                        if atom_type_j < atom_type_k:
+                            interaction_str = f"A_{atom_type_j}_{atom_type_k}"
+                        else:
+                            interaction_str = f"A_{atom_type_k}_{atom_type_j}"
+                        col_id = column_id_of[interaction_str]
+                        # Energy terms
+                        A_matrix[0, col_id] += 0.5 / r ** 12
+                        A_matrix[0, col_id + nA] += -0.5 / r ** 6
+                        # Force terms
                         if fxyz is not None:
-                            A_matrix[3*id_atom+1,column_id] += 12.0/r**13 * mic_diff[good_i][0]/r
-                            A_matrix[3*id_atom+2,column_id] += 12.0/r**13 * mic_diff[good_i][1]/r
-                            A_matrix[3*id_atom+3,column_id] += 12.0/r**13 * mic_diff[good_i][2]/r
-                            A_matrix[3*id_atom+1,column_id+nA] += -6.0/r**7 * mic_diff[good_i][0]/r
-                            A_matrix[3*id_atom+2,column_id+nA] += -6.0/r**7 * mic_diff[good_i][1]/r
-                            A_matrix[3*id_atom+3,column_id+nA] += -6.0/r**7 * mic_diff[good_i][2]/r
-                    id_atom += 1
+                            force_prefactors = [
+                                (12.0 / r ** 13, col_id),
+                                (-6.0 / r ** 7, col_id + nA)
+                            ]
+                            for prefactor, column in force_prefactors:
+                                for dim in range(3):  # x, y, z
+                                    row_idx = 3 * atom_counter + 1 + dim
+                                    A_matrix[row_idx, column] += prefactor * mic_diff[idx][dim] / r
+                    atom_counter += 1
+
     return A_matrix, b_matrix
 
-def read_xyzf_compute_A_matrix(filename, n_type_max, rcut, train_forces=False):
+
+from typing import Tuple, Dict
+import numpy as np
+
+def read_xyzf_compute_A_matrix(
+    filename: str,
+    n_type_max: int,
+    rcut: float,
+    train_forces: bool = False
+) -> Tuple[np.ndarray, np.ndarray, Dict[str, int]]:
+    """
+    Reads an XYZF file, computes A and b matrices for all configurations,
+    and returns the stacked matrices along with the column mapping.
+
+    Parameters:
+        filename (str): Path to the input XYZF file.
+        n_type_max (int): Maximum number of atom types.
+        rcut (float): Cutoff radius for interactions.
+        train_forces (bool): Whether to include atomic forces in training data.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray, Dict[str, int]]:
+            - A_matrix: Stacked matrix of interaction terms and atomic energies.
+            - b_matrix: Stacked target energy and forces.
+            - column_id_of: Mapping from interaction string to column index.
+    """
     try:
-        if train_forces:
-            print ("Energies and atomic forces are included in the training data")
-        else:
-            print ("Only energies are included in the training data")
-        A_matrix = []
-        b_matrix = []
+        print(
+            "Energies and atomic forces are included in the training data"
+            if train_forces else
+            "Only energies are included in the training data"
+        )
+
+        A_matrix_list = []
+        b_matrix_list = []
         column_id_of = mapping_ij_to_column(n_type_max)
         nconf = 0
+
         with open(filename, "rt") as file:
             while True:
                 line = file.readline()
                 if not line:
                     break  # End of file
+
                 n_atom = int(line.split()[0])
-                line = file.readline().split()
-                cell_vectors, energy = extract_cell_xyzf(line)
+                header_line = file.readline().split()
+                cell_vectors, energy = extract_cell_xyzf(header_line)
+
                 x, y, z, fx, fy, fz, atype, amol = ([] for _ in range(8))
-                for i in range(n_atom):
-                    line = file.readline().split()
-                    x.append(float(line[1]))
-                    y.append(float(line[2]))
-                    z.append(float(line[3]))
-                    fx.append(float(line[4]))
-                    fy.append(float(line[5]))
-                    fz.append(float(line[6]))
-                    atype.append(int(line[7]))
-                    amol.append(int(line[8]))
-                xyz   = np.column_stack((x, y, z))
-                fxyz   = np.column_stack((fx, fy, fz)) * convert_Hartree_2_kcal_per_mol/convert_Bohr_2_Angstrom
-                atype = np.array(atype)
-                counts = np.bincount(atype, minlength=n_type_max+1)
-                chem_formular = counts[1:n_type_max+1]
-                chem_formular = np.zeros(n_type_max)
-                amol  = np.array(amol)
+                for _ in range(n_atom):
+                    atom_line = file.readline().split()
+                    x.append(float(atom_line[1]))
+                    y.append(float(atom_line[2]))
+                    z.append(float(atom_line[3]))
+                    fx.append(float(atom_line[4]))
+                    fy.append(float(atom_line[5]))
+                    fz.append(float(atom_line[6]))
+                    atype.append(int(atom_line[7]))
+                    amol.append(int(atom_line[8]))
+
+                xyz = np.column_stack((x, y, z))
+                fxyz = (
+                    np.column_stack((fx, fy, fz)) *
+                    convert_Hartree_2_kcal_per_mol / convert_Bohr_2_Angstrom
+                )
+                atype_arr = np.array(atype)
+                counts = np.bincount(atype_arr, minlength=n_type_max + 1)
+                chem_formular = counts[1:n_type_max + 1]
+                amol_arr = np.array(amol)
 
                 if not train_forces:
                     fxyz = None
-                A_sub, b_sub = gen_matrix_for_single_config(xyz, atype, amol, chem_formular, column_id_of, cell_vectors, rcut, n_type_max, energy, fxyz)
 
-                A_matrix.append(A_sub)
-                b_matrix.append(b_sub)
+                A_sub, b_sub = gen_matrix_for_single_config(
+                    xyz, atype_arr, amol_arr, chem_formular,
+                    column_id_of, cell_vectors, rcut, n_type_max, energy, fxyz
+                )
+
+                A_matrix_list.append(A_sub)
+                b_matrix_list.append(b_sub)
                 nconf += 1
 
-        A_matrix = np.vstack(A_matrix)
-        b_matrix = np.concatenate(b_matrix)
-        print ("Number of configurations:", nconf)
-        print ("Shapes of matrices A and b:", A_matrix.shape, b_matrix.shape)
+        A_matrix = np.vstack(A_matrix_list)
+        b_matrix = np.concatenate(b_matrix_list)
+        print(f"Number of configurations: {nconf}")
+        print(f"Shapes of matrices A and b: {A_matrix.shape}, {b_matrix.shape}")
+
     except Exception as e:
         print(f"Error reading file '{filename}': {e}")
-        return np.array([]), np.array([]), np.array([])
+        return np.array([]), np.array([]), {}
+
     return A_matrix, b_matrix, column_id_of
 
-
-def lstsq_solver(A_matrix, b_matrix, weights):
-    #W = np.sqrt(weights)
-    #A_weighted = A_matrix * W[:, np.newaxis]
-    #b_weighted = b_matrix * W
-    #res = lsq_linear(A_weighted, b_weighted, bounds=(0.0, np.inf))
-    #res = lsq_linear(A_matrix, b_matrix, bounds=(60.0, np.inf))
-    res = lsq_linear(A_matrix, b_matrix, bounds=(200, 500000))
+def lstsq_solver(A_matrix, b_matrix, weights, symbols_remaining_cols):
+    print (symbols_remaining_cols)
+    count_A = sum(s.startswith("A_") for s in symbols_remaining_cols)
+    count_B = sum(s.startswith("B_") for s in symbols_remaining_cols)
+    count_E = sum(s.startswith("E_") for s in symbols_remaining_cols)
+    arr_A = np.full(count_A, 0.001 * 2**12)
+    arr_B = np.full(count_B, 0.001 * 2**6)
+    arr_E = np.full(count_E, -500)
+    lower_bounds = np.concatenate([arr_A, arr_B, arr_E])
+    arr_A = np.full(count_A, 0.4 * 4**12)
+    arr_B = np.full(count_B, 0.4 * 4**6)
+    arr_E = np.full(count_E, 500)
+    upper_bounds = np.concatenate([arr_A, arr_B, arr_E])
+    W = np.sqrt(weights)
+    A_weighted = A_matrix * W[:, np.newaxis]
+    b_weighted = b_matrix * W
+    print (lower_bounds)
+    print (upper_bounds)
+    res = lsq_linear(A_weighted, b_weighted, bounds=(lower_bounds, upper_bounds))
     x = res.x
-
-    # Find x using least squares
-    #x, residuals, rank, s = lstsq(A_matrix, b_matrix)
-    #x, residuals, rank, s = lstsq(A_matrix, b_matrix, rcond=None)
-    #print (x)
-    #print (len(x))
+    print (x[-count_E:])
     Ax = A_matrix @ x
     rmse = np.sqrt(np.mean((Ax - b_matrix)**2))
     print ("rmse=",rmse)
@@ -697,30 +836,62 @@ def lstsq_solver(A_matrix, b_matrix, weights):
     np.savetxt('parity.dat', output, fmt='%.6f', delimiter=' ')
     return x
 
+def print_epsilon_sigma(x: List[float], symbols_remaining_cols: List[str]) -> None:
+    """
+    Prints Lennard-Jones epsilon and sigma parameters for atom pairs,
+    based on provided coefficients and symbol labels.
 
-def print_epsilon_sigma(x, symbols_remaining_cols):
+    Parameters:
+        x (List[float]): Coefficient values, must match symbols_remaining_cols in length.
+        symbols_remaining_cols (List[str]): List of symbol strings (e.g., "A_1_2", "B_1_2").
+
+    Output:
+        Prints formatted pair_coeff lines for each atom pair with both A and B coefficients.
+    """
     if len(x) != len(symbols_remaining_cols):
-        print ("error")
+        print("Error: Length of coefficients does not match number of symbols.")
         sys.exit(1)
-    else:
-        # Find all CC codes for A and B
-        A_codes = [s[2:] for s in symbols_remaining_cols if s.startswith("A_")]
-        B_codes = [s[2:] for s in symbols_remaining_cols if s.startswith("B_")]
-        # Find the intersection of CC codes present in both A and B
-        common_codes = set(A_codes) & set(B_codes)
-        # For each CC, find the index of "A_$CC" and "B_$CC"
-        indices = []
-        for cc in sorted(common_codes):
-            a_label = f"A_{cc}"
-            b_label = f"B_{cc}"
+
+    # Extract CC codes for A and B interactions
+    A_codes = [symbol[2:] for symbol in symbols_remaining_cols if symbol.startswith("A_")]
+    B_codes = [symbol[2:] for symbol in symbols_remaining_cols if symbol.startswith("B_")]
+
+    # Find common CC codes present in both A and B
+    common_codes = set(A_codes) & set(B_codes)
+
+    for cc in sorted(common_codes):
+        a_label = f"A_{cc}"
+        b_label = f"B_{cc}"
+        try:
             a_idx = symbols_remaining_cols.index(a_label)
             b_idx = symbols_remaining_cols.index(b_label)
-            An = x[a_idx]
-            Bn = x[b_idx]
-            sigma = (An/Bn) ** (1/6)
-            epsilon = Bn/(4.0*(An/Bn))
-            style_list = [int(x) for x in cc.split('_')]
-            print(f"pair_coeff {style_list[0]:4d} {style_list[1]:4d} lj/cut {epsilon:12.5f} {sigma:12.5f}")
+        except ValueError:
+            print(f"Error: Could not find indices for {a_label} or {b_label}.")
+            continue
+
+        An = x[a_idx]
+        Bn = x[b_idx]
+
+        # Calculate sigma and epsilon according to Lennard-Jones parameters
+        try:
+            sigma = (An / Bn) ** (1 / 6)
+            epsilon = Bn / (4.0 * (An / Bn))
+        except ZeroDivisionError:
+            print(f"Error: Division by zero for pair {cc}.")
+            continue
+
+        try:
+            style_list = [int(i) for i in cc.split('_')]
+        except ValueError:
+            print(f"Error: Invalid CC code format '{cc}'.")
+            continue
+
+        print(f"pair_coeff {style_list[0]:4d} {style_list[1]:4d} lj/cut {epsilon:12.5f} {sigma:12.5f}")
+
+
+
+
+
 
 
 

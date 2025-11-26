@@ -63,7 +63,7 @@ def main():
     logging.info('Starting to read xyzf file and generate A and b matrices')
     A_matrix, b_matrix, column_id_of = read_xyzf_compute_A_matrix(file_xyzf_path, n_type_max, rcut, train_forces=train_forces)
 
-    logging.info('Filtering A matrix, remove column will all zero values')
+    logging.info('Filtering A matrix, remove column with all zero values')
     remaining_cols = np.where(~np.all(A_matrix == 0, axis=0))[0]
     filtered_A_matrix = A_matrix[:, remaining_cols]
     inv_column_id_of = {v: k for k, v in column_id_of.items()}
@@ -72,7 +72,7 @@ def main():
     
     logging.info('Performing constrained linear-fitting')
     weights = np.ones(len(b_matrix))
-    x = lstsq_solver(filtered_A_matrix, b_matrix, weights)
+    x = lstsq_solver(filtered_A_matrix, b_matrix, weights, symbols_remaining_cols)
 
     logging.info('Printing out pair styles for LAMMPS')
     print_epsilon_sigma(x, symbols_remaining_cols)
