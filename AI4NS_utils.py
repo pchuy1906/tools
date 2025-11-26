@@ -560,8 +560,6 @@ def identify_molecules(xyz, atype, amol):
 
 def gen_matrix_for_single_config(xyz, atype, amol, chem_formular, column_id_of, cell_vectors, rcut, n_type_max, energy, fxyz=None):
 
-
-
     # A_matrix has 3 block in the column
     # First block is for part with interaction A/r^12, length nA
     # Second block is for part with interaction -B/r^6, length nB
@@ -571,7 +569,10 @@ def gen_matrix_for_single_config(xyz, atype, amol, chem_formular, column_id_of, 
     n_cols = nA + nB + n_type_max
 
     # In the row, the order is first energy, then forces of corresponding molecules
-    n_rows = 1 + 3*len(xyz)
+    if fxyz is not None:
+        n_rows = 1 + 3*len(xyz)
+    else:
+        n_rows = 1
 
     # The b_matrix is easy to generate:
     b_matrix = []
@@ -608,22 +609,28 @@ def gen_matrix_for_single_config(xyz, atype, amol, chem_formular, column_id_of, 
                         r = distances[good_i]
                         gen_str = f"A_{atype2[good_i]}_{atype1[k]}" if atype2[good_i] < atype1[k] else f"A_{atype1[k]}_{atype2[good_i]}"
                         column_id = column_id_of[gen_str]
-                        A_matrix[0,column_id] += 1.0/r**12
-                        A_matrix[0,column_id+nA] += -1.0/r**6
-                        A_matrix[3*id_atom+1,column_id] += 12.0/r**13 * mic_diff[good_i][0]/r
-                        A_matrix[3*id_atom+2,column_id] += 12.0/r**13 * mic_diff[good_i][1]/r
-                        A_matrix[3*id_atom+3,column_id] += 12.0/r**13 * mic_diff[good_i][2]/r
-                        A_matrix[3*id_atom+1,column_id+nA] += -6.0/r**7 * mic_diff[good_i][0]/r
-                        A_matrix[3*id_atom+2,column_id+nA] += -6.0/r**7 * mic_diff[good_i][1]/r
-                        A_matrix[3*id_atom+3,column_id+nA] += -6.0/r**7 * mic_diff[good_i][2]/r
+                        A_matrix[0,column_id] += 0.5/r**12
+                        A_matrix[0,column_id+nA] += -0.5/r**6
+                        if fxyz is not None:
+                            A_matrix[3*id_atom+1,column_id] += 12.0/r**13 * mic_diff[good_i][0]/r
+                            A_matrix[3*id_atom+2,column_id] += 12.0/r**13 * mic_diff[good_i][1]/r
+                            A_matrix[3*id_atom+3,column_id] += 12.0/r**13 * mic_diff[good_i][2]/r
+                            A_matrix[3*id_atom+1,column_id+nA] += -6.0/r**7 * mic_diff[good_i][0]/r
+                            A_matrix[3*id_atom+2,column_id+nA] += -6.0/r**7 * mic_diff[good_i][1]/r
+                            A_matrix[3*id_atom+3,column_id+nA] += -6.0/r**7 * mic_diff[good_i][2]/r
                     id_atom += 1
     return A_matrix, b_matrix
 
 def read_xyzf_compute_A_matrix(filename, n_type_max, rcut, train_forces=False):
     try:
+        if train_forces:
+            print ("Energies and atomic forces are included in the training data")
+        else:
+            print ("Only energies are included in the training data")
         A_matrix = []
         b_matrix = []
         column_id_of = mapping_ij_to_column(n_type_max)
+        nconf = 0
         with open(filename, "rt") as file:
             while True:
                 line = file.readline()
@@ -651,13 +658,18 @@ def read_xyzf_compute_A_matrix(filename, n_type_max, rcut, train_forces=False):
                 chem_formular = np.zeros(n_type_max)
                 amol  = np.array(amol)
 
+                if not train_forces:
+                    fxyz = None
                 A_sub, b_sub = gen_matrix_for_single_config(xyz, atype, amol, chem_formular, column_id_of, cell_vectors, rcut, n_type_max, energy, fxyz)
 
                 A_matrix.append(A_sub)
                 b_matrix.append(b_sub)
+                nconf += 1
 
         A_matrix = np.vstack(A_matrix)
         b_matrix = np.concatenate(b_matrix)
+        print ("Number of configurations:", nconf)
+        print ("Shapes of matrices A and b:", A_matrix.shape, b_matrix.shape)
     except Exception as e:
         print(f"Error reading file '{filename}': {e}")
         return np.array([]), np.array([]), np.array([])
@@ -676,8 +688,8 @@ def lstsq_solver(A_matrix, b_matrix, weights):
     # Find x using least squares
     #x, residuals, rank, s = lstsq(A_matrix, b_matrix)
     #x, residuals, rank, s = lstsq(A_matrix, b_matrix, rcond=None)
-    print (x)
-    print (len(x))
+    #print (x)
+    #print (len(x))
     Ax = A_matrix @ x
     rmse = np.sqrt(np.mean((Ax - b_matrix)**2))
     print ("rmse=",rmse)
@@ -703,11 +715,13 @@ def print_epsilon_sigma(x, symbols_remaining_cols):
             b_label = f"B_{cc}"
             a_idx = symbols_remaining_cols.index(a_label)
             b_idx = symbols_remaining_cols.index(b_label)
-            An = x[a_idx] ** (1/6)
+            An = x[a_idx]
             Bn = x[b_idx]
             sigma = (An/Bn) ** (1/6)
             epsilon = Bn/(4.0*(An/Bn))
-            #print (cc, epsilon, sigma)
+            style_list = [int(x) for x in cc.split('_')]
+            print(f"pair_coeff {style_list[0]:4d} {style_list[1]:4d} lj/cut {epsilon:12.5f} {sigma:12.5f}")
+
 
 
 
