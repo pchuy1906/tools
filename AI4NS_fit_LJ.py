@@ -83,6 +83,17 @@ def main():
     logging.info('Printing out pair styles for LAMMPS')
     print_epsilon_sigma(x, symbols_remaining_cols)
 
+    epsilon = 0.1
+    sigma = 3.0
+    x1 = 4.0*epsilon*sigma**12
+    x2 = 4.0*epsilon*sigma**6
+    x = np.array([x1]*18 + [x2]*18 + [0]*11)
+    Ax = filtered_A_matrix @ x
+    output = np.column_stack((b_matrix, Ax))
+    np.savetxt('output2.dat', output, fmt='%.6f', delimiter=' ')
+    rmse = np.sqrt(np.mean((Ax - b_matrix)**2))
+    print ("ground truth", rmse)
+
 if __name__ == '__main__':
     main()
 

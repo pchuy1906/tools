@@ -901,37 +901,6 @@ def lstsq_solver(A_matrix, b_matrix, weights, symbols_remaining_cols, label_ener
 
     return x
 
-def _lstsq_solver(A_matrix, b_matrix, weights, symbols_remaining_cols, label_energy_forces):
-    count_A = sum(s.startswith("A_") for s in symbols_remaining_cols)
-    count_B = sum(s.startswith("B_") for s in symbols_remaining_cols)
-    count_E = sum(s.startswith("E_") for s in symbols_remaining_cols)
-    arr_A = np.full(count_A, 0.001 * 2**12)
-    arr_B = np.full(count_B, 0.001 * 2**6)
-    arr_E = np.full(count_E, -500)
-    lower_bounds = np.concatenate([arr_A, arr_B, arr_E])
-    arr_A = np.full(count_A, 0.4 * 4**12)
-    arr_B = np.full(count_B, 0.4 * 4**6)
-    arr_E = np.full(count_E, 500)
-    upper_bounds = np.concatenate([arr_A, arr_B, arr_E])
-    W = np.sqrt(weights)
-    A_weighted = A_matrix * W[:, np.newaxis]
-    b_weighted = b_matrix * W
-    res = lsq_linear(A_weighted, b_weighted, bounds=(lower_bounds, upper_bounds))
-    x = res.x
-    print ("the fitted atomic energy:")
-    print (x[-count_E:])
-    Ax = A_matrix @ x
-    rmse = np.sqrt(np.mean((Ax - b_matrix)**2))
-    print ("rmse=",rmse)
-    output = np.column_stack((b_matrix, Ax))
-
-    for key_words in "energy", "force":
-        indexes = [i for i, v in enumerate(label_energy_forces) if key_words in v]
-        if indexes:
-            np.savetxt(f'parity_{key_words}.dat', output[indexes], fmt='%.6f', delimiter=' ')
-
-    return x
-
 def print_epsilon_sigma(x: List[float], symbols_remaining_cols: List[str]) -> None:
     """
     Prints Lennard-Jones epsilon and sigma parameters for atom pairs,
