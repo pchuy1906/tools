@@ -302,7 +302,7 @@ def write_POSCAR(
         None. Writes POSCAR and related files to disk.
     """
     nmol = np.max(amol)
-    molecules_xyz, molecules_atype = identify_molecules(xyz, atype, amol, nmol, fxyz=None)
+    molecules_xyz, molecules_atype = identify_molecules(xyz, atype, amol)
     rmin = 100.0
     for i in range(nmol):
         for j in range(i+1,nmol):

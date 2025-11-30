@@ -72,13 +72,18 @@ def main():
         logging.error(f'LAMMPS dump file not found: {lammps_dump_path}')
         return
 
-    # Your conversion logic here
+    # Read masses and determine element symbols
     logging.info(f'Reading masses from LAMMPS data file: {lammps_data_path}')
     masses = extract_masses(lammps_data_path)
-    print(', '.join([f'{m:.3f}' for m in masses]))
     logging.info(f'Matching these masses with element symbols')
     element_symbols = match_mass_to_element_ase(masses)
-    print (element_symbols)
+
+    # Print header
+    print(f"{'Symbol':<10} {'Mass':>10}")
+    print("-" * 21)
+    # Print each element and mass
+    for symbol, mass in zip(element_symbols, masses):
+        print(f"{symbol:<10} {mass:>10.3f}")
 
     if not os.path.isfile(lammps_log_path):
         logging.info(f'Reading LAMMPS dump and writing POSCAR files')
