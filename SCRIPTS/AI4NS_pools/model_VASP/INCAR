@@ -1,0 +1,42 @@
+SYSTEM = gas
+
+ Startparameter for this Run:
+   NWRITE = 1    LPETIM=F    write-flag & timer
+   ISTART = 0    job   : 0-new  1-cont  2-samecut
+   NCORE  = 16
+
+ Electronic Relaxation 1
+   ENCUT  = 800.0 Set ENCUT to somewhat more than PREC=Accurate value with all elements.
+   GGA    = PE
+   PREC   = Accurate
+   EDIFF  = 1E-06  stopping-criterion for ELM
+   ISPIN  = 1
+
+ Ionic Relaxation
+   NSW    = 0 number of steps for IOM
+   IBRION = 2
+   ADDGRID= .FALSE.
+   ISIF   = 2    stress and relaxation
+   LCORR  = .TRUE.    Harris-correction to forces.  Could compare to LCORR=F
+
+ DOS related values:
+   ISMEAR = 0;   SIGMA  =    0.04 all-purpose smearing for metals or insulators.
+
+ Electronic Relaxation 2
+   NELMIN = 4
+   NELM   = 2000
+   IALGO  = 38   algorithm
+   LREAL  = .FALSE.   NO real space projections / compare to LREAL = A.
+
+   TEBEG  = 0     !Starting temperature
+   TEEND  = 0
+
+ Additional Options
+  LWAVE   = .FALSE.
+  LAECHG  = .FALSE.
+  LCHARG  = .FALSE.
+
+LASPH = .TRUE.
+ALGO  = Conjugate
+NPAR = 9
+ISYM=-1

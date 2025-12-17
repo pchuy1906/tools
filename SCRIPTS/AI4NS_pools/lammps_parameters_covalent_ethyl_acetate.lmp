@@ -1,0 +1,42 @@
+#Bonds 
+bond_coeff	1	268.000	1.529	#	CT	CT				
+bond_coeff	2	320.000	1.410	#	CT	OS1				
+bond_coeff	3	214.000	1.327	#	C	OS1				
+bond_coeff	4	570.000	1.229	#	C	O1				
+bond_coeff	5	317.000	1.522	#	C	CT				
+bond_coeff	6	340.000	1.090	#	CT	HC				
+bond_coeff	7	340.000	1.090	#	CT	HC				
+										
+
+#Angles 										
+angle_coeff	1	37.500	110.700	#	CT	CT	HC			
+angle_coeff	2	33.000	107.800	#	HC	CT	HC			
+angle_coeff	3	50.000	109.500	#	CT	CT	OS			
+angle_coeff	4	37.500	110.700	#	CT	CT	HC			
+angle_coeff	5	35.000	109.500	#	HC	CT	OS			
+angle_coeff	6	33.000	107.800	#	HC	CT	HC			
+angle_coeff	7	83.000	116.900	#	C	OS	CT			
+angle_coeff	8	83.000	123.400	#	O	C	OS			
+angle_coeff	9	81.000	111.400	#	CT	C	OS			
+angle_coeff	10	80.000	120.400	#	CT	C	O			
+angle_coeff	11	35.000	109.500	#	C	CT	HC			
+										
+
+#Dihedrals										
+dihedral_coeff	1   opls	0.000	0.000	0.468	0.000	#	HC	CT	CT	OS
+dihedral_coeff	2   opls	0.000	0.000	0.300	0.000	#	HC	CT	CT	HC
+dihedral_coeff	3   opls	-1.220	-0.126	0.422	0.000	#	CT	CT	OS	C
+dihedral_coeff	4   opls	0.000	0.000	0.198	0.000	#	HC	CT	OS	C
+dihedral_coeff	5   opls	0.000	5.000	0.000	0.000	#	O	C	OS	CT
+dihedral_coeff	6   opls	4.669	5.124	0.000	0.000	#	CT	C	OS	CT
+dihedral_coeff	7   opls	0.000	0.000	0.132	0.000	#	OS	C	CT	HC
+										
+
+#Impropers										
+improper_coeff	1	0.000	0.000	#	CT	CT	HC	HC		
+improper_coeff	2	0.000	0.000	#	HC	CT	HC	HC		
+improper_coeff	3	0.000	0.000	#	CT	CT	HC3	OS1		
+improper_coeff	4	0.000	0.000	#	CT	CT	HC	HC		
+improper_coeff	5	0.000	0.000	#	HC3	CT	HC3	OS1		
+improper_coeff	6	21.000	0.000	#	CT	C	O	OS		
+improper_coeff	7	0.000	0.000	#	C	CT	HC	HC		

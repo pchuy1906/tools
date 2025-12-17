@@ -102,6 +102,7 @@ def write_comment_line(f2, cell_type, cell_9, stress, energy):
         print ("unknown cell_type", cell_type)
     f2.write("\n" )
 
+energies = []
 while True:
     tmp  = f.readline()
     line = tmp.strip()
@@ -114,6 +115,7 @@ while True:
 
     ncomment = len(tmp)
     energy = (float(tmp[ncomment-1]) - np.dot(Amatrix[istruc,:],Atomic_energies[:]))
+    energies.append(energy)
 
     if (ncomment==17):
         # format: NON_ORTHO cell(1,1:3), cell(2,1:3), cell(3,1:3), stress(1:6), energy
@@ -149,3 +151,15 @@ while True:
     istruc+=1
 f.close
 
+
+def weight_energy(energies):
+    emin = min(energies)
+    print (emin)
+    dE = 2.0
+    wE = (1.0/(1.0+(energies-emin)/dE))**2
+    return wE
+
+#print (energies)
+wE = weight_energy(energies)
+#print (wE)
+np.savetxt('weights.dat', wE, fmt='%12.6f')

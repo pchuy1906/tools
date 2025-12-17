@@ -1,0 +1,50 @@
+#-------------------------------------------------------------
+# INITIALIZE LAMMPS RUN 
+#-------------------------------------------------------------
+
+#General Parameters  
+units			real
+boundary		p p p
+
+#Set Force Field Style
+include         lammps_forcefield_style.lmp
+
+#Get Datafile
+read_data       ../../lammps_data_mixture_wrap.lmp
+
+#FF Parameters
+include         lammps_parameters_covalent_ethyl_acetate.lmp 
+include         lammps_parameters_covalent_pentanol.lmp  
+include         lammps_parameters_covalent_water.lmp
+include         lammps_parameters_covalent_llm105.lmp  
+
+include         lammps_parameters_pairwise_llm105_buck.lmp 
+
+#Set Wolf Electrostatics
+pair_coeff      *   *   coul/wolf
+
+#Pairwise Exclusions
+special_bonds   lj/coul 0.0 0.0 1.0
+
+#Neighbor List Parameters 
+neighbor        2.0 bin
+neigh_modify    delay 0 every 1 check yes
+
+#-------------------------------------------------------------
+# DUMP SETUP
+#-------------------------------------------------------------
+thermo_style 	custom step etotal ebond pe epair ecoul
+thermo 		    1
+
+#-------------------------------------------------------------
+# SIMULATION SETUP
+#-------------------------------------------------------------
+
+include         ./lammps_commands.lmp  
+
+
+
+
+
+
+

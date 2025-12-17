@@ -81,7 +81,7 @@ v2 = np.linspace(0.0, 0.4, 5,   endpoint=True)
 
 from matplotlib import cm
 vcmap=cm.jet
-plt.contourf(Y, X, fyx, 80, cmap=vcmap, levels=v)
+plt.contourf(Y, X, fyx, 80, cmap=vcmap, levels=v, vmin=0.0, vmax=0.4)
 
 def compute_2D_distribution(x, y, fyx, xlim, file_input):
     #print (x[0], x[-1], len(x))
@@ -106,9 +106,16 @@ def compute_2D_distribution(x, y, fyx, xlim, file_input):
 compute_2D_distribution(x, y, fyx, xlim, file_input)
 
 
-plt.colorbar(shrink=0.75,ticks=v2)
+#plt.colorbar(shrink=1.00,ticks=v2)
+cbar = plt.colorbar(shrink=1.00, ticks=v2)
+cbar.set_ticks(v2)
+cbar.set_ticklabels([f"{tick:.1f}" for tick in v2])
 
 plt.xlim(xlim[0], xlim[1] )
+
+xtick_positions = np.arange(xlim[0], xlim[1], 4)+1
+plt.xticks(xtick_positions)
+
 plt.ylim(y[0], y[-1])
 
 plt.xlabel(r'$z$ $(\AA)$')

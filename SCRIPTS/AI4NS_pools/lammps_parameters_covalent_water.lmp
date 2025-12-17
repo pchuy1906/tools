@@ -1,0 +1,6 @@
+#Bonds 
+bond_coeff	12	450.000	0.957	#	HW	OW	
+		
+        
+#Angles 								
+angle_coeff	18	55.000	104.520	#	HW	OW	HW

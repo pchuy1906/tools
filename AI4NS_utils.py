@@ -20,6 +20,7 @@ from ase.data import atomic_masses, chemical_symbols
 from ase.geometry import find_mic
 
 from scipy.optimize import lsq_linear
+from scipy.optimize import least_squares
 
 from ase.units import kcal, mol, Hartree, Bohr, GPa, eV, Angstrom, bar
 convert_kbar_2_GPa = bar/GPa
@@ -284,7 +285,7 @@ def write_POSCAR(
     xyz: np.ndarray,
     atype: np.ndarray,
     amol: np.ndarray,
-    rmin_select: float = 2.7,
+    rmin_select: float = 0.1,
 ) -> None:
     """
     Writes a POSCAR file for VASP from molecular configuration data.
@@ -519,11 +520,11 @@ def read_lammps_log(filename):
                         poteng_index = thermo_header.index('PotEng')
                     except ValueError:
                         raise ValueError("'PotEng' not found in thermo header.")
-                    try:
-                        thermo_values = file.readline().split()
+
+                    thermo_values = file.readline().split()
+                    if thermo_values[0] != "WARNING:":
                         potential_energies.append(float(thermo_values[poteng_index]))
-                    except ValueError:
-                        thermo_values = file.readline().split()
+                    else:
                         thermo_values = file.readline().split()
                         potential_energies.append(float(thermo_values[poteng_index]))
                 if "units" in line:
@@ -584,7 +585,7 @@ def mapping_ij_to_column(n_type_max: int) -> dict:
     # Generate "A_i_j" and "B_i_j" for each unique pair (i, j)
     for prefix in ["A", "B"]:
         for i in range(n_type_max):
-            for j in range(i + 1, n_type_max):
+            for j in range(i, n_type_max):
                 key = f"{prefix}_{i + 1}_{j + 1}"
                 column_map[key] = column_counter
                 column_counter += 1
@@ -638,6 +639,7 @@ def gen_matrix_for_single_config(
     rcut: float,
     n_type_max: int,
     energy: float,
+    same_molecules: bool,
     fxyz: Optional[np.ndarray] = None
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
@@ -662,7 +664,7 @@ def gen_matrix_for_single_config(
             - A_matrix: Matrix of interaction terms and atomic energies.
             - b_matrix: Target energy and forces.
     """
-    nA = n_type_max * (n_type_max - 1) // 2
+    nA = n_type_max * (n_type_max + 1) // 2
     nB = nA
     n_cols = nA + nB + n_type_max
 
@@ -687,7 +689,10 @@ def gen_matrix_for_single_config(
     nmol = len(molecules_xyz)
     for i in range(nmol):
         for j in range(nmol):
-            if not np.array_equal(molecules_atype[i], molecules_atype[j]):
+
+            if (not np.array_equal(molecules_atype[i], molecules_atype[j]) and not same_molecules) \
+               or (same_molecules and i != j):
+
                 xyz1 = molecules_xyz[i]
                 atype1 = molecules_atype[i]
                 xyz2 = molecules_xyz[j]
@@ -710,7 +715,7 @@ def gen_matrix_for_single_config(
                         r = distances[idx]
                         atom_type_j = atype2[idx]
                         # Ensure consistent ordering for interaction string
-                        if atom_type_j < atom_type_k:
+                        if atom_type_j <= atom_type_k:
                             interaction_str = f"A_{atom_type_j}_{atom_type_k}"
                         else:
                             interaction_str = f"A_{atom_type_k}_{atom_type_j}"
@@ -733,6 +738,7 @@ def read_xyzf_compute_A_matrix(
     filename: str,
     n_type_max: int,
     rcut: float,
+    same_molecules: bool = False,
     train_forces: bool = False
 ) -> Tuple[np.ndarray, np.ndarray, Dict[str, int]]:
     """
@@ -761,6 +767,7 @@ def read_xyzf_compute_A_matrix(
         A_matrix_list = []
         b_matrix_list = []
         label_energy_forces = []
+        n_atom_s = []
         column_id_of = mapping_ij_to_column(n_type_max)
         nconf = 0
 
@@ -771,6 +778,7 @@ def read_xyzf_compute_A_matrix(
                     break  # End of file
 
                 n_atom = int(line.split()[0])
+                n_atom_s.append(n_atom)
                 label_energy_forces.append("energy_"+str(nconf))
                 if train_forces:
                     for i in range(n_atom):
@@ -808,7 +816,7 @@ def read_xyzf_compute_A_matrix(
 
                 A_sub, b_sub = gen_matrix_for_single_config(
                     xyz, atype_arr, amol_arr, chem_formular,
-                    column_id_of, cell_vectors, rcut, n_type_max, energy, fxyz
+                    column_id_of, cell_vectors, rcut, n_type_max, energy, same_molecules, fxyz
                 )
 
                 A_matrix_list.append(A_sub)
@@ -824,9 +832,9 @@ def read_xyzf_compute_A_matrix(
         print(f"Error reading file '{filename}': {e}")
         return np.array([]), np.array([]), {}
 
-    return A_matrix, b_matrix, column_id_of, label_energy_forces
+    return A_matrix, b_matrix, column_id_of, np.array(label_energy_forces), n_atom_s
 
-def lstsq_solver(A_matrix, b_matrix, weights, symbols_remaining_cols, label_energy_forces):
+def lstsq_solver_linear(A_matrix, b_matrix, weights, symbols_remaining_cols, label_energy_forces):
     """
     Solve a weighted linear least-squares problem with bounds and export parity plots.
 
@@ -860,12 +868,22 @@ def lstsq_solver(A_matrix, b_matrix, weights, symbols_remaining_cols, label_ener
         np.full(count_B, 0.001 * 2**6),
         np.full(count_E, -500.0)
     ])
-
     upper_bounds = np.concatenate([
         np.full(count_A, 0.4 * 4**12),
         np.full(count_B, 0.4 * 4**6),
         np.full(count_E, 500.0)
     ])
+    #lower_bounds = np.concatenate([
+    #    np.full(count_A, 20000.0),
+    #    np.full(count_B, 700.0),
+    #    np.full(count_E, -500.0)
+    #])
+    #upper_bounds = np.concatenate([
+    #    np.full(count_A, 30000.0),
+    #    np.full(count_B, 800.0),
+    #    np.full(count_E, 500.0)
+    #])
+
 
     # --- Weight matrices ---
     W = np.sqrt(weights)
@@ -877,6 +895,10 @@ def lstsq_solver(A_matrix, b_matrix, weights, symbols_remaining_cols, label_ener
     x = res.x
 
     # --- Reporting ---
+    print("Fitted 4*eps*sig**12:")
+    print(x[:count_A])
+    print("Fitted 4*eps*sig**6:")
+    print(x[count_A:2*count_A])
     print("Fitted atomic energies:")
     print(x[-count_E:])
 
@@ -901,7 +923,7 @@ def lstsq_solver(A_matrix, b_matrix, weights, symbols_remaining_cols, label_ener
 
     return x
 
-def print_epsilon_sigma(x: List[float], symbols_remaining_cols: List[str]) -> None:
+def print_epsilon_sigma(x: List[float], symbols_remaining_cols: List[str], direct=False) -> None:
     """
     Prints Lennard-Jones epsilon and sigma parameters for atom pairs,
     based on provided coefficients and symbol labels.
@@ -934,16 +956,20 @@ def print_epsilon_sigma(x: List[float], symbols_remaining_cols: List[str]) -> No
             print(f"Error: Could not find indices for {a_label} or {b_label}.")
             continue
 
-        An = x[a_idx]
-        Bn = x[b_idx]
-
-        # Calculate sigma and epsilon according to Lennard-Jones parameters
-        try:
-            sigma = (An / Bn) ** (1 / 6)
-            epsilon = Bn / (4.0 * (An / Bn))
-        except ZeroDivisionError:
-            print(f"Error: Division by zero for pair {cc}.")
-            continue
+        if not direct:
+            An = x[a_idx]
+            Bn = x[b_idx]
+            # Calculate sigma and epsilon according to Lennard-Jones parameters
+            try:
+                sigma = (An / Bn) ** (1 / 6)
+                epsilon = Bn / (4.0 * (An / Bn))
+                #print (An, Bn, sigma, epsilon)
+            except ZeroDivisionError:
+                print(f"Error: Division by zero for pair {cc}.")
+                continue
+        else:
+            sigma = x[a_idx]
+            epsilon = x[b_idx]
 
         try:
             style_list = [int(i) for i in cc.split('_')]
@@ -953,7 +979,97 @@ def print_epsilon_sigma(x: List[float], symbols_remaining_cols: List[str]) -> No
 
         print(f"pair_coeff {style_list[0]:4d} {style_list[1]:4d} lj/cut {epsilon:12.5f} {sigma:12.5f}")
 
+def model(params, count_A):
+    # Unpack parameters
+    sigma = params[:count_A]
+    epsilon = params[count_A:2*count_A]
+    on_site = params[2*count_A:]
+    # Construct trial_x as in your original code
+    x = np.concatenate([
+        4.0 * epsilon * sigma**12,
+        4.0 * epsilon * sigma**6,
+        on_site
+    ])
+    return x
 
+def residuals(params, count_A, A_matrix, b_matrix):
+    x = model(params, count_A)
+    b_pred = A_matrix @ x
+    return b_pred - b_matrix
+
+def lstsq_solver_nonlinear(A_matrix, b_matrix, weights, symbols_remaining_cols, label_energy_forces):
+    # --- Count parameters by prefix ---
+    count_A = sum(s.startswith("A_") for s in symbols_remaining_cols)
+    count_B = sum(s.startswith("B_") for s in symbols_remaining_cols)
+    count_E = sum(s.startswith("E_") for s in symbols_remaining_cols)
+    # --- Initial guesses ---
+    init_sigma = np.full(count_A, 3.00)
+    init_epsilon = np.full(count_A, 0.20)
+    init_on_site = np.full(count_E, -300.0)
+    x0 = np.concatenate([init_sigma, init_epsilon, init_on_site])
+    # Set bounds
+    lower_sigma = np.full(count_A, 2.0)
+    upper_sigma = np.full(count_A, 10.0)
+    lower_epsilon = np.full(count_A, 0.00001)
+    upper_epsilon = np.full(count_A, 0.30000)
+    lower_on_site = np.full(count_E, -1000.0)
+    upper_on_site = np.full(count_E,  1000.0)
+    lower_bounds = np.concatenate([lower_sigma, lower_epsilon, lower_on_site])
+    upper_bounds = np.concatenate([upper_sigma, upper_epsilon, upper_on_site])
+
+    W = np.sqrt(weights)
+    A_weighted = A_matrix * W[:, None]
+    b_weighted = b_matrix * W
+
+    # --- Run non-linear least squares fitting ---
+    result = least_squares(
+        residuals,
+        x0,
+        args=(count_A, A_weighted, b_weighted),
+        bounds=(lower_bounds, upper_bounds),
+        max_nfev=1000,
+        verbose=2,
+        method='trf'  # Trust Region Reflective, good for large problems
+    )
+
+    # --- Extract fitted parameters ---
+    params = result.x
+
+    # --- Reporting ---
+    print("Fitted atomic energies:")
+    print(params[-count_E:])
+    x = model(params, count_A)
+
+    Ax = A_matrix @ x
+    rmse = np.sqrt(np.mean((Ax - b_matrix)**2))
+    print(f"RMSE = {rmse:.6f}")
+
+
+    # Reshape all to column vectors
+    b_matrix_col = b_matrix.reshape(-1, 1)
+    Ax_col = Ax.reshape(-1, 1)
+    labels_col = label_energy_forces.reshape(-1, 1)
+    output_with_labels = np.hstack((b_matrix_col, Ax_col, labels_col)).astype(object)
+
+    keywords = ("energy", "force")
+    
+    for key in keywords:
+        indexes = [i for i, v in enumerate(label_energy_forces) if key in v.lower()]
+        if indexes:
+            selected = output_with_labels[indexes]
+            with open(f"parity_{key}.dat", "w") as f:
+                for row in selected:
+                    f.write("%12.6f %12.6f %4s\n" % (float(row[0]), float(row[1]), str(row[2])))
+
+    return result.x
+
+def gen_weights(weight_forces, train_forces, n_atoms):
+    weights = []
+    for natom in n_atoms:
+        weights.extend([200.0/natom])
+        if train_forces:
+            weights.extend([weight_forces] * 3*natom)
+    return np.array(weights)
 
 
 

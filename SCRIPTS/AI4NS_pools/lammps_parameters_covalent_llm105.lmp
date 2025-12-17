@@ -1,0 +1,52 @@
+#Bonds 
+bond_coeff	13	400.000	1.221	#	Type:	N1	O2
+bond_coeff	14	360.000	1.373	#	Type:	C1	N3
+bond_coeff	15	360.000	1.332	#	Type:	C1	N2
+bond_coeff	16	350.000	1.435	#	Type:	C2	N1
+bond_coeff	17	360.000	1.390	#	Type:	C2	C1
+bond_coeff	18	450.000	1.019	#	Type:	H1	N2
+bond_coeff	19	350.000	1.264	#	Type:	N3	O1
+bond_coeff	20	360.000	1.307	#	Type:	C2	N4
+
+
+#Angles 
+angle_coeff	19	25.000	126.776	#	Type:	H1	N2
+angle_coeff	20	60.000	115.241	#	Type:	C2	C1
+angle_coeff	21	60.000	121.817	#	Type:	C1	N3
+angle_coeff	22	60.000	114.887	#	Type:	N4	C2
+angle_coeff	23	60.000	127.273	#	Type:	C2	C1
+angle_coeff	24	20.000	114.933	#	Type:	C1	N2
+angle_coeff	25	60.000	118.211	#	Type:	C2	N4
+angle_coeff	26	60.000	118.567	#	Type:	C1	N3
+angle_coeff	27	60.000	110.296	#	Type:	N3	C1
+angle_coeff	28	60.000	121.786	#	Type:	C1	C2
+angle_coeff	29	70.000	124.563	#	Type:	O2	N1
+angle_coeff	30	60.000	118.287	#	Type:	C2	N1
+angle_coeff	31	60.000	122.323	#	Type:	C1	C2
+
+
+#Dihedrals 
+dihedral_coeff	15	harmonic 0.603	-1	2	#	Type:	N2	C1	N3	C1
+dihedral_coeff	16	harmonic 6.617	-1	2	#	Type:	N2	C1	C2	N4
+dihedral_coeff	17	harmonic 6.585	-1	2	#	Type:	N3	C1	C2	N1
+dihedral_coeff	18	harmonic 4.174	-1	2	#	Type:	N1	C2	N4	C2
+dihedral_coeff	19	harmonic 6.670	-1	2	#	Type:	N3	C1	C2	N4
+dihedral_coeff	20	harmonic 3.329	-1	2	#	Type:	N3	C1	N2	H1
+dihedral_coeff	21	harmonic 1.173	-1	2	#	Type:	C1	C2	N1	O2
+dihedral_coeff	22	harmonic 6.592	-1	2	#	Type:	N1	C2	C1	N2
+dihedral_coeff	23	harmonic 1.167	-1	2	#	Type:	N4	C2	N1	O2
+dihedral_coeff	24	harmonic 0.614	-1	2	#	Type:	C2	C1	N3	O1
+dihedral_coeff	25	harmonic 0.631	-1	2	#	Type:	C2	C1	N3	C1
+dihedral_coeff	26	harmonic 4.177	-1	2	#	Type:	C1	C2	N4	C2
+dihedral_coeff	27	harmonic 0.605	-1	2	#	Type:	N2	C1	N3	O1
+dihedral_coeff	28	harmonic 3.337	-1	2	#	Type:	C2	C1	N2	H1
+
+
+
+#Impropers 
+improper_coeff	13	1.120	0.000	#	Type:	N3	C1	C1
+improper_coeff	14	1.120	0.000	#	Type:	N2	C1	H1
+improper_coeff	15	1.120	0.000	#	Type:	C2	C1	N4
+improper_coeff	16	1.120	0.000	#	Type:	C1	C2	N3
+improper_coeff	17	1.120	0.000	#	Type:	N1	O2	O2
+
