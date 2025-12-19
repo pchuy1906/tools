@@ -90,7 +90,7 @@ def read_atoms_type_charge(filename):
                 break
     return np.array(atom_data), np.array(atom_charges), np.array(xyz)
 
-def read_bonds_type_index(filename, keyword, cols):
+def read_index_improper(filename, keyword, cols):
     """
     Read columns 2 and [3,4] (type, index) from the Bonds section
     of a LAMMPS data file.
@@ -136,7 +136,7 @@ def read_bonds_type_index(filename, keyword, cols):
                 break
     return np.array(bond_data), np.array(bond_index)
 
-def read_coeffs_improper(file_path, keyword, cols, col_sym=None):
+def read_coeff_improper(file_path, keyword, cols, col_sym=None):
     """
     Read lines starting with 'improper_coeff' and return:
       - improper_ids: np.array of column 2 (integers)
@@ -197,8 +197,8 @@ def gen_data_structure(moles, path_pools):
         atom_data_min = np.min(atom_data)
         atom_data = atom_data-atom_data_min+1
     
-        bond_data, bond_index = read_bonds_type_index(file,keyword='Bonds',cols=[2,3])
-        bond_ids, bond_params = read_coeffs_improper(file,keyword='bond_coeff',cols=[2,3])
+        bond_data, bond_index = read_index_improper(file,keyword='Bonds',cols=[2,3])
+        bond_ids, bond_params = read_coeff_improper(file,keyword='bond_coeff',cols=[2,3])
         if not have_same_unique_values(bond_ids,bond_data):
             print(f"Error: unique values do not match between bond_data")
             print (bond_data)
@@ -208,8 +208,8 @@ def gen_data_structure(moles, path_pools):
         bond_data = bond_data-bond_data_min+1
         bond_ids = bond_ids-bond_data_min+1
     
-        angle_data, angle_index = read_bonds_type_index(file,keyword='Angles',cols=[2,3,4])
-        angle_ids, angle_params = read_coeffs_improper(file,keyword='angle_coeff',cols=[2,3])
+        angle_data, angle_index = read_index_improper(file,keyword='Angles',cols=[2,3,4])
+        angle_ids, angle_params = read_coeff_improper(file,keyword='angle_coeff',cols=[2,3])
         if not have_same_unique_values(angle_ids,angle_data):
             print(f"Error: unique values do not match between angle_data")
             print (angle_data)
@@ -219,8 +219,8 @@ def gen_data_structure(moles, path_pools):
         angle_data = angle_data-angle_data_min+1
         angle_ids = angle_ids-angle_data_min+1
     
-        dihedral_data, dihedral_index = read_bonds_type_index(file,keyword='Dihedrals',cols=[2,3,4,5])
-        dihedral_ids, dihedral_params, dihedral_sym = read_coeffs_improper(file,keyword='dihedral_coeff',cols=[3,4,5,6], col_sym=2)
+        dihedral_data, dihedral_index = read_index_improper(file,keyword='Dihedrals',cols=[2,3,4,5])
+        dihedral_ids, dihedral_params, dihedral_sym = read_coeff_improper(file,keyword='dihedral_coeff',cols=[3,4,5,6], col_sym=2)
         if not have_same_unique_values(dihedral_ids,dihedral_data):
             print(f"Error: unique values do not match between dihedral_data")
             print (dihedral_data)
@@ -231,8 +231,8 @@ def gen_data_structure(moles, path_pools):
             dihedral_data = dihedral_data-dihedral_data_min+1
             dihedral_ids = dihedral_ids-dihedral_data_min+1
     
-        improper_data, improper_index = read_bonds_type_index(file,keyword='Impropers',cols=[2,3,4,5])
-        improper_ids, improper_params = read_coeffs_improper(file,keyword='improper_coeff',cols=[2,3])
+        improper_data, improper_index = read_index_improper(file,keyword='Impropers',cols=[2,3,4,5])
+        improper_ids, improper_params = read_coeff_improper(file,keyword='improper_coeff',cols=[2,3])
         if not have_same_unique_values(improper_ids,improper_data):
             print(f"Error: unique values do not match between improper_data")
             print (improper_data)
