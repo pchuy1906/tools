@@ -1,12 +1,12 @@
 import numpy as np
 
-def read_masses(filename):
+def read_masses(file_path):
     """
     Read the second column from the Masses section of a LAMMPS data file.
 
     Parameters
     ----------
-    filename : str
+    file_path : str
         Path to the LAMMPS data file
 
     Returns
@@ -18,7 +18,7 @@ def read_masses(filename):
     in_masses = False
     data_started = False
 
-    with open(filename, "r") as f:
+    with open(file_path, "r") as f:
         for line in f:
             line = line.strip()
 
@@ -44,7 +44,7 @@ def read_masses(filename):
 
     return np.array(masses)
 
-def read_atoms_type_charge(filename):
+def read_atoms_type_charge(file_path):
     """
     Read columns 3 and 4 (type, charge) and xyz (5,6,7) from the Atoms section
     of a LAMMPS data file.
@@ -59,7 +59,7 @@ def read_atoms_type_charge(filename):
     in_atoms = False
     data_started = False
 
-    with open(filename, "r") as f:
+    with open(file_path, "r") as f:
         for line in f:
             line = line.strip()
 
@@ -90,7 +90,7 @@ def read_atoms_type_charge(filename):
                 break
     return np.array(atom_data), np.array(atom_charges), np.array(xyz)
 
-def read_index_improper(filename, keyword, cols):
+def read_index_improper(file_path, keyword, cols):
     """
     Read columns 2 and [3,4] (type, index) from the Bonds section
     of a LAMMPS data file.
@@ -104,7 +104,7 @@ def read_index_improper(filename, keyword, cols):
     in_bonds = False
     data_started = False
 
-    with open(filename, "r") as f:
+    with open(file_path, "r") as f:
         for line in f:
             line = line.strip()
 
