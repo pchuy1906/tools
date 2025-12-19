@@ -90,7 +90,7 @@ def read_atoms_type_charge(filename):
                 break
     return np.array(atom_data), np.array(atom_charges), np.array(xyz)
 
-def read_bonds_type_index(filename):
+def read_bonds_type_index(filename, keyword, cols):
     """
     Read columns 2 and [3,4] (type, index) from the Bonds section
     of a LAMMPS data file.
@@ -109,7 +109,7 @@ def read_bonds_type_index(filename):
             line = line.strip()
 
             # Enter Atoms section
-            if line == "Bonds":
+            if line == keyword:
                 in_bonds = True
                 continue
 
@@ -125,7 +125,10 @@ def read_bonds_type_index(filename):
                 # column 2: bond type
                 bond_data.append(int(parts[1]))
                 # column 3,4: bond index
-                bond_index.append([int(parts[2]),int(parts[3])])
+                data_cols = []
+                for col in cols:
+                    data_cols.append(int(parts[col]))
+                bond_index.append(data_cols)
                 continue
 
             # Stop at empty line after data
@@ -133,228 +136,7 @@ def read_bonds_type_index(filename):
                 break
     return np.array(bond_data), np.array(bond_index)
 
-def read_angles_type_index(filename):
-    """
-    Read columns 2 and [3,4] (type, index) from the Angles section
-    of a LAMMPS data file.
-
-    Returns
-    -------
-    np.ndarray, np.ndarray: [angles_type, angles_index]
-    """
-    angle_data = []
-    angle_index = []
-    in_angles = False
-    data_started = False
-
-    with open(filename, "r") as f:
-        for line in f:
-            line = line.strip()
-
-            # Enter Atoms section
-            if line == "Angles":
-                in_angles = True
-                continue
-
-            # Skip empty line right after "Angles"
-            if in_angles and not data_started and line == "":
-                continue
-
-            # Read data lines
-            if in_angles and line != "":
-                data_started = True
-                parts = line.split()
-
-                # column 2: angle type
-                angle_data.append(int(parts[1]))
-                # column 3,4,5: angle index
-                angle_index.append([int(parts[2]),int(parts[3]),int(parts[4])])
-                continue
-
-            # Stop at empty line after data
-            if in_angles and data_started and line == "":
-                break
-    return np.array(angle_data), np.array(angle_index)
-
-def read_dihedrals_type_index(filename):
-    """
-    Read columns 2 and [3,4,5,6] (type, index) from the Dihedrals section
-    of a LAMMPS data file.
-
-    Returns
-    -------
-    np.ndarray, np.ndarray: [dihedrals_type, dihedrals_index]
-    """
-    dihedral_data = []
-    dihedral_index = []
-    in_dihedrals = False
-    data_started = False
-
-    with open(filename, "r") as f:
-        for line in f:
-            line = line.strip()
-
-            # Enter Atoms section
-            if line == "Dihedrals":
-                in_dihedrals = True
-                continue
-
-            # Skip empty line right after "Dihedrals"
-            if in_dihedrals and not data_started and line == "":
-                continue
-
-            # Read data lines
-            if in_dihedrals and line != "":
-                data_started = True
-                parts = line.split()
-
-                # column 2: dihedral type
-                dihedral_data.append(int(parts[1]))
-                # column 3,4,5,6: dihedral index
-                dihedral_index.append([int(parts[2]),int(parts[3]),int(parts[4]),int(parts[5])])
-                continue
-
-            # Stop at empty line after data
-            if in_dihedrals and data_started and line == "":
-                break
-    return np.array(dihedral_data), np.array(dihedral_index)
-
-def read_impropers_type_index(filename):
-    """
-    Read columns 2 and [3,4,5,6] (type, index) from the Impropers section
-    of a LAMMPS data file.
-
-    Returns
-    -------
-    np.ndarray, np.ndarray: [impropers_type, impropers_index]
-    """
-    improper_data = []
-    improper_index = []
-    in_impropers = False
-    data_started = False
-
-    with open(filename, "r") as f:
-        for line in f:
-            line = line.strip()
-
-            # Enter Atoms section
-            if line == "Impropers":
-                in_impropers = True
-                continue
-
-            # Skip empty line right after "Impropers"
-            if in_impropers and not data_started and line == "":
-                continue
-
-            # Read data lines
-            if in_impropers and line != "":
-                data_started = True
-                parts = line.split()
-
-                # column 2: improper type
-                improper_data.append(int(parts[1]))
-                # column 3,4,5,6: improper index
-                improper_index.append([int(parts[2]),int(parts[3]),int(parts[4]),int(parts[5])])
-                continue
-
-            # Stop at empty line after data
-            if in_impropers and data_started and line == "":
-                break
-    return np.array(improper_data), np.array(improper_index)
-
-def read_coeffs_bond(file_path):
-    """
-    Read lines starting with 'bond_coeff' and return:
-      - bond_ids: np.array of column 2 (integers)
-      - bond_params: np.array of columns 3 and 4 (floats, shape (N, 2))
-    """
-    bond_ids = []
-    bond_params = []
-
-    with open(file_path, "r") as f:
-        for line in f:
-            line = line.strip()
-            # skip empty lines and pure comment lines
-            if not line or line.startswith("#"):
-                continue
-
-            parts = line.split()
-
-            if parts[0] == "bond_coeff":
-                # column 2: bond type id
-                bond_ids.append(int(parts[1]))
-                # columns 3 and 4: parameters
-                bond_params.append([float(parts[2]), float(parts[3])])
-
-    bond_ids = np.array(bond_ids, dtype=int)
-    bond_params = np.array(bond_params, dtype=float)
-
-    return bond_ids, bond_params
-
-def read_coeffs_angle(file_path):
-    """
-    Read lines starting with 'angle_coeff' and return:
-      - angle_ids: np.array of column 2 (integers)
-      - angle_params: np.array of columns 3 and 4 (floats, shape (N, 2))
-    """
-    angle_ids = []
-    angle_params = []
-
-    with open(file_path, "r") as f:
-        for line in f:
-            line = line.strip()
-            # skip empty lines and pure comment lines
-            if not line or line.startswith("#"):
-                continue
-
-            parts = line.split()
-
-            if parts[0] == "angle_coeff":
-                # column 2: angle type id
-                angle_ids.append(int(parts[1]))
-                # columns 3 and 4: parameters
-                angle_params.append([float(parts[2]), float(parts[3])])
-
-    angle_ids = np.array(angle_ids, dtype=int)
-    angle_params = np.array(angle_params, dtype=float)
-
-    return angle_ids, angle_params
-
-def read_coeffs_dihedral(file_path):
-    """
-    Read lines starting with 'dihedral_coeff' and return:
-      - dihedral_ids: np.array of column 2 (integers)
-      - dihedral_sym: np.array of column 3 (str)
-      - dihedral_params: np.array of columns 4, 5, 6 and 7 (floats, shape (N, 4))
-    """
-    dihedral_ids = []
-    dihedral_sym = []
-    dihedral_params = []
-
-    with open(file_path, "r") as f:
-        for line in f:
-            line = line.strip()
-            # skip empty lines and pure comment lines
-            if not line or line.startswith("#"):
-                continue
-
-            parts = line.split()
-
-            if parts[0] == "dihedral_coeff":
-                # column 2: dihedral type id
-                dihedral_ids.append(int(parts[1]))
-                # column 3: dihedral type symbol
-                dihedral_sym.append(parts[2])
-                # columns 4, 5, 6, and 7: parameters
-                dihedral_params.append([float(parts[3]), float(parts[4]), float(parts[5]), float(parts[6]) ])
-
-    dihedral_ids = np.array(dihedral_ids, dtype=int)
-    dihedral_sym = np.array(dihedral_sym, dtype=str)
-    dihedral_params = np.array(dihedral_params, dtype=float)
-
-    return dihedral_ids, dihedral_sym, dihedral_params
-
-def read_coeffs_improper(file_path):
+def read_coeffs_improper(file_path, keyword, cols, col_sym=None):
     """
     Read lines starting with 'improper_coeff' and return:
       - improper_ids: np.array of column 2 (integers)
@@ -362,6 +144,7 @@ def read_coeffs_improper(file_path):
     """
     improper_ids = []
     improper_params = []
+    improper_sym = []
 
     with open(file_path, "r") as f:
         for line in f:
@@ -372,16 +155,26 @@ def read_coeffs_improper(file_path):
 
             parts = line.split()
 
-            if parts[0] == "improper_coeff":
+            if parts[0] == keyword:
                 # column 2: improper type id
                 improper_ids.append(int(parts[1]))
-                # columns 3 and 4: parameters
-                improper_params.append([float(parts[2]), float(parts[3])])
+                # Comment
+                if col_sym is not None:
+                    improper_sym.append(parts[col_sym])
+                # Comment
+                data_cols = []
+                for col in cols:
+                    data_cols.append(float(parts[col]))
+                improper_params.append(data_cols)
 
     improper_ids = np.array(improper_ids, dtype=int)
     improper_params = np.array(improper_params, dtype=float)
 
-    return improper_ids, improper_params
+    if col_sym is not None:
+        improper_sym = np.array(improper_sym, dtype=str)
+        return improper_ids, improper_params, improper_sym
+    else:
+        return improper_ids, improper_params
 
 def have_same_unique_values(a, b):
     """
@@ -404,8 +197,8 @@ def gen_data_structure(moles, path_pools):
         atom_data_min = np.min(atom_data)
         atom_data = atom_data-atom_data_min+1
     
-        bond_data, bond_index = read_bonds_type_index(file)
-        bond_ids, bond_params = read_coeffs_bond(file)
+        bond_data, bond_index = read_bonds_type_index(file,keyword='Bonds',cols=[2,3])
+        bond_ids, bond_params = read_coeffs_improper(file,keyword='bond_coeff',cols=[2,3])
         if not have_same_unique_values(bond_ids,bond_data):
             print(f"Error: unique values do not match between bond_data")
             print (bond_data)
@@ -415,8 +208,8 @@ def gen_data_structure(moles, path_pools):
         bond_data = bond_data-bond_data_min+1
         bond_ids = bond_ids-bond_data_min+1
     
-        angle_data, angle_index = read_angles_type_index(file)
-        angle_ids, angle_params = read_coeffs_angle(file)
+        angle_data, angle_index = read_bonds_type_index(file,keyword='Angles',cols=[2,3,4])
+        angle_ids, angle_params = read_coeffs_improper(file,keyword='angle_coeff',cols=[2,3])
         if not have_same_unique_values(angle_ids,angle_data):
             print(f"Error: unique values do not match between angle_data")
             print (angle_data)
@@ -426,8 +219,8 @@ def gen_data_structure(moles, path_pools):
         angle_data = angle_data-angle_data_min+1
         angle_ids = angle_ids-angle_data_min+1
     
-        dihedral_data, dihedral_index = read_dihedrals_type_index(file)
-        dihedral_ids, dihedral_sym, dihedral_params = read_coeffs_dihedral(file)
+        dihedral_data, dihedral_index = read_bonds_type_index(file,keyword='Dihedrals',cols=[2,3,4,5])
+        dihedral_ids, dihedral_params, dihedral_sym = read_coeffs_improper(file,keyword='dihedral_coeff',cols=[3,4,5,6], col_sym=2)
         if not have_same_unique_values(dihedral_ids,dihedral_data):
             print(f"Error: unique values do not match between dihedral_data")
             print (dihedral_data)
@@ -438,8 +231,8 @@ def gen_data_structure(moles, path_pools):
             dihedral_data = dihedral_data-dihedral_data_min+1
             dihedral_ids = dihedral_ids-dihedral_data_min+1
     
-        improper_data, improper_index = read_impropers_type_index(file)
-        improper_ids, improper_params = read_coeffs_improper(file)
+        improper_data, improper_index = read_bonds_type_index(file,keyword='Impropers',cols=[2,3,4,5])
+        improper_ids, improper_params = read_coeffs_improper(file,keyword='improper_coeff',cols=[2,3])
         if not have_same_unique_values(improper_ids,improper_data):
             print(f"Error: unique values do not match between improper_data")
             print (improper_data)
@@ -601,42 +394,63 @@ def write_lmp_data_mix(df, moles, nmoles):
 
     f2.write("%1s\n" %( "Bonds" ))
     f2.write("\n")
-    write_lmp_data_topology(f2, moles, nmoles, df, n_atom_moles, ndata=2, keyword1='bond_data', keyword2='bond_index')
+    write_lmp_data_topology(f2, moles, nmoles, df,
+        n_atom_moles,
+        ndata=2, keyword1='bond_data', keyword2='bond_index',
+    )
     f2.write("\n")
 
     f2.write("%1s\n" %( "Bond Coeffs" ))
     f2.write("\n")
-    write_lmp_data_FFvalues(f2, moles, nmoles, df, ndata=2, keyword1='bond_ids', keyword2='bond_params')
+    write_lmp_data_FFvalues(f2, moles, nmoles, df,
+        ndata=2, keyword1='bond_ids', keyword2='bond_params',
+    )
     f2.write("\n")
 
     f2.write("%1s\n" %( "Angles" ))
     f2.write("\n")
-    write_lmp_data_topology(f2, moles, nmoles, df, n_atom_moles, ndata=3, keyword1='angle_data', keyword2='angle_index')
+    write_lmp_data_topology(f2, moles, nmoles, df,
+        n_atom_moles, 
+        ndata=3, keyword1='angle_data', keyword2='angle_index',
+    )
     f2.write("\n")
 
     f2.write("%1s\n" %( "Angle Coeffs" ))
     f2.write("\n")
-    write_lmp_data_FFvalues(f2, moles, nmoles, df, ndata=2, keyword1='angle_ids', keyword2='angle_params')
+    write_lmp_data_FFvalues(f2, moles, nmoles, df,
+        ndata=2, keyword1='angle_ids', keyword2='angle_params',
+    )
     f2.write("\n")
 
     f2.write("%1s\n" %( "Dihedrals" ))
     f2.write("\n")
-    write_lmp_data_topology(f2, moles, nmoles, df, n_atom_moles, ndata=4, keyword1='dihedral_data', keyword2='dihedral_index')
+    write_lmp_data_topology(f2, moles, nmoles, df,
+        n_atom_moles,
+        ndata=4, keyword1='dihedral_data', keyword2='dihedral_index',
+    )
     f2.write("\n")
 
     f2.write("%1s\n" %( "Dihedral Coeffs" ))
     f2.write("\n")
-    write_lmp_data_FFvalues(f2, moles, nmoles, df, ndata=4, keyword1='dihedral_ids', keyword2='dihedral_params', keyword3='dihedral_sym')
+    write_lmp_data_FFvalues(f2, moles, nmoles, df,
+        ndata=4, keyword1='dihedral_ids', keyword2='dihedral_params',
+        keyword3='dihedral_sym',
+    )
     f2.write("\n")
 
     f2.write("%1s\n" %( "Impropers" ))
     f2.write("\n")
-    write_lmp_data_topology(f2, moles, nmoles, df, n_atom_moles, ndata=4, keyword1='improper_data', keyword2='improper_index')
+    write_lmp_data_topology(f2, moles, nmoles, df,
+        n_atom_moles, 
+        ndata=4, keyword1='improper_data', keyword2='improper_index',
+    )
     f2.write("\n")
 
     f2.write("%1s\n" %( "Improper Coeffs" ))
     f2.write("\n")
-    write_lmp_data_FFvalues(f2, moles, nmoles, df, ndata=2, keyword1='improper_ids', keyword2='improper_params')
+    write_lmp_data_FFvalues(f2, moles, nmoles, df,
+        ndata=2, keyword1='improper_ids', keyword2='improper_params',
+    )
     f2.write("\n")
 
 
