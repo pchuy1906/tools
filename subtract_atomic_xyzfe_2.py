@@ -35,12 +35,20 @@ istruc = 0
 Amatrix = np.array([])
 bmatrix = []
 
+f3 = open("id_structure.txt", "w")
 while True:
     tmp  = f.readline()
     line = tmp.strip()
     if line == '': break
 
     natom = int(tmp)
+    if natom==272:
+        f3.write("%s\n" %("condensed_ambient_HN3"))
+    elif natom>272:
+        f3.write("%s\n" %("condensed_extreme_HN3"))
+    else:
+        f3.write("%s\n" %("gas_or_other"))
+
     
     box = np.zeros(shape=(3,3))
     force = np.zeros(shape=(3*natom))

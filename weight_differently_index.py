@@ -31,11 +31,11 @@ file_xyzf           = args.file_xyzf
 w_force_H_more      = args.w_force_H_more
 
 if not os.path.isfile(file_id_more_weight):
-    print(f"ERROR: {file_id_more_weight} does not exist.")
-    sys.exit(1)
+    print(f"{file_id_more_weight} does not exist.")
+    ids_more_weight = np.array([-1])
 else:
     print(f"configurations with IDs in file {file_id_more_weight} is weighted more with a factor {wE_more}")
-ids_more_weight = np.loadtxt(file_id_more_weight, dtype=int)
+    ids_more_weight = np.loadtxt(file_id_more_weight, dtype=int)
 
 f2 = open('label.txt', "w")
 f3 = open('new_weight.dat', "w")

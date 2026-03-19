@@ -1,4 +1,8 @@
+from AI4NS_utils import match_mass_to_element_ase
+
 import numpy as np
+import sys
+import math
 
 def read_masses(file_path):
     """
@@ -187,13 +191,17 @@ def have_same_unique_values(a, b):
 def gen_data_structure(moles, path_pools):
     df = {}
     for mole in moles:
-        file = f"{path_pools}/{mole}/data_{mole}.dat"
+        file = f"{path_pools}/data_{mole}.dat"
     
         masses = read_masses(file)
     
         atom_data, atom_charges, xyz = read_atoms_type_charge(file)
-        if len(masses) > len(atom_data):
-            masses = masses[atom_data-1]
+        #if len(masses) > len(atom_data):
+        #    masses = masses[atom_data-1]
+        masses = masses[atom_data-1]
+        com = np.average(xyz, axis=0, weights=masses)
+        xyz -= com
+
         atom_data_min = np.min(atom_data)
         atom_data = atom_data-atom_data_min+1
     
@@ -308,8 +316,8 @@ def write_lmp_data_FFvalues(f2, moles, nmoles, df, ndata, keyword1, keyword2, ke
             f2.write("\n")
         ishift_bond_type += len(bond_ids)
 
-def write_lmp_data_mix(df, moles, nmoles):
-    f2 = open("data.lammps_mix", "w")
+def write_lmp_data_mixture(df, moles, nmoles, maxsize):
+    f2 = open("data.lammps_mixture", "w")
     n_atom = n_bond = n_angl = n_dihe = n_impr = 0
     n_atom_type = n_bond_type = n_angl_type = n_dihe_type = n_impr_type = 0
 
@@ -332,7 +340,6 @@ def write_lmp_data_mix(df, moles, nmoles):
         n_dihe_type += len(df_mole['dihedral_ids'])
         n_impr_type += len(df_mole['improper_ids'])
 
-    print (n_atom)
     f2.write("%1s\n" %( "# lammps data file" ))
     f2.write("\n")
     f2.write("%1d %1s\n" %( n_atom, "atoms" ))
@@ -346,6 +353,21 @@ def write_lmp_data_mix(df, moles, nmoles):
     f2.write("%1d %1s\n" %( n_angl_type, "angle types" ))
     f2.write("%1d %1s\n" %( n_dihe_type, "dihedral types" ))
     f2.write("%1d %1s\n" %( n_impr_type, "improper types" ))
+    f2.write("\n")
+
+    total_moles = sum(nmoles)
+    nlattice = math.ceil( total_moles**(1/3) )
+    all_triples = np.array(np.meshgrid(
+        np.arange(nlattice), np.arange(nlattice), np.arange(nlattice)
+    )).T.reshape(-1, 3)
+    idx = np.random.choice(len(all_triples), size=total_moles, replace=False)
+    lattice = all_triples[idx]
+
+    latticesize = maxsize + 2.0
+    f2.write("%15.6f %15.6f %1s\n" %(0.0, latticesize*nlattice, "xlo xhi" ))
+    f2.write("%15.6f %15.6f %1s\n" %(0.0, latticesize*nlattice, "ylo yhi" ))
+    f2.write("%15.6f %15.6f %1s\n" %(0.0, latticesize*nlattice, "zlo zhi" ))
+    f2.write("%15.6f %15.6f %15.6f %1s\n" %(0.0, 0.0, 0.0, "xy xz yz" ))
     f2.write("\n")
 
     f2.write("%1s\n" %( "Masses" ))
@@ -370,15 +392,25 @@ def write_lmp_data_mix(df, moles, nmoles):
     ncount_atom = ncount_mole = 0
     ishift = 0
     n_atom_moles = []
+    f3 = open("config.xyz", "w")
+    f3.write("%1d\n" %( n_atom ))
+    f3.write("%12.6f" %( latticesize*nlattice ))
+    f3.write("%12.6f" %( latticesize*nlattice ))
+    f3.write("%12.6f" %( latticesize*nlattice ))
+    f3.write("\n")
     for i in range(len(moles)):
         mole = moles[i]
         nmole = nmoles[i]
         df_mole = df[mole]
 
-        atom_data   = df_mole['atom_data']
+        atom_data    = df_mole['atom_data']
         atom_charges = df_mole['atom_charges']
         xyz          = df_mole['xyz']
+        masses       = df_mole['masses']
+        asym = match_mass_to_element_ase(masses, tol=0.01)
+        print (asym)
         for k in range(nmole):
+            R = lattice[ncount_mole,:]
             ncount_mole += 1
             for j in range(len(atom_data)):
                 ncount_atom += 1
@@ -386,10 +418,16 @@ def write_lmp_data_mix(df, moles, nmoles):
                 f2.write("%d " %( ncount_mole ))
                 f2.write("%d " %( atom_data[j] + ishift))
                 f2.write("%12.4f " %( atom_charges[j] ))
-                f2.write("%15.6f %15.6f %15.6f" %( xyz[j,0], xyz[j,1], xyz[j,2] ))
+                for l in range(3):
+                    f2.write("%15.6f " %( xyz[j,l] + (R[l]+0.5) * latticesize ))
                 f2.write("\n")
+                f3.write("%s " %( asym[j] ))
+                for l in range(3):
+                    f3.write("%15.6f " %( xyz[j,l] + (R[l]+0.5) * latticesize ))
+                f3.write("\n")
         ishift += len(np.unique(atom_data))
         n_atom_moles.append(len(atom_data))
+    f3.close()
     f2.write("\n")
 
     f2.write("%1s\n" %( "Bonds" ))
@@ -454,18 +492,43 @@ def write_lmp_data_mix(df, moles, nmoles):
     f2.write("\n")
 
 
+def compute_n_moles(df, moles, mole_ratio, cubic_length, density):
+    Na = 6.02214076e23
+    # convert from Angstrom to m
+    cubic_length_in_m = cubic_length * 1e-10
+    volume = cubic_length_in_m ** 3
+    mole_masses = []
+    l1dmax = []
+    for i in range(len(moles)):
+        mole = moles[i]
+        df_mole = df[mole]
+        masses = df_mole['masses']
+        atom_data = df_mole['atom_data']
+        mole_mass = np.sum(masses)
+        # convert from g/mol to kg/molecule
+        mole_mass *= 1e-3/Na
+        mole_masses.append(mole_mass)
 
+        xyz = df_mole['xyz']
+        xmin, ymin, zmin = np.min(xyz, axis=0)
+        xmax, ymax, zmax = np.max(xyz, axis=0)
+        l1d = [xmax-xmin, ymax-ymin, zmax-zmin]
+        l1dmax.append( max(l1d) )
 
-
-
-
+    nmolA = mole_masses[0] + mole_masses[1]*(1.0-mole_ratio)/mole_ratio
+    nmolA = volume * density/ nmolA
+    nmolB = nmolA * (1.0 - mole_ratio)/mole_ratio
+    return np.array([round(nmolA), round(nmolB)]), max(l1dmax)
 
 
 moles = ["water","pentanol"]
-nmoles = [2,1]
 path_pools = "./pools/"
 df = gen_data_structure(moles,path_pools)
 
-write_lmp_data_mix(df, moles, nmoles)
+nmoles, maxsize = compute_n_moles(df, moles, mole_ratio=0.5, cubic_length=20.0, density=1000.0)
+#print (nmoles)
+#print (maxsize)
+
+write_lmp_data_mixture(df, moles, nmoles, maxsize)
 
 

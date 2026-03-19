@@ -72,10 +72,13 @@ while True:
     all_force = np.concatenate([all_force,force])
 f.close
 print 
-print ("the number of structures:", istruc)
-print ("the number of force components:", len(all_force))
-print ("min-force", min(all_force), " kcal/mol-A")
-print ("max-force", max(all_force), " kcal/mol-A")
+print("the number of structures:", istruc)
+print("the number of force components:", len(all_force))
+print("min-force", min(all_force), " kcal/mol-A")
+print("max-force", max(all_force), " kcal/mol-A")
+print("max-magnitude-force", np.max(np.abs(all_force)), " kcal/mol-A")
+print("average-magnitude-force", np.mean(np.abs(all_force)), " kcal/mol-A")
+
 print 
 
 #bins_inp = np.linspace( -4000, 4000, num=200)

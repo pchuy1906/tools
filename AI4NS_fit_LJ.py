@@ -13,7 +13,7 @@ import numpy as np
 import argparse
 import logging
 
-from AI4NS_utils import read_xyzf_compute_A_matrix, print_epsilon_sigma
+from AI4NS_utils import read_xyzf_compute_a_matrix, print_epsilon_sigma
 from AI4NS_utils import gen_weights
 from AI4NS_utils import lstsq_solver_linear, lstsq_solver_nonlinear
 
@@ -58,7 +58,7 @@ def parse_arguments():
     )
     parser.add_argument(
         "--file_solution",
-        default="x.dat",
+        default="solution_x.dat",
         help="Path to the solution file (default: x.dat)"
     )
     parser.add_argument(
@@ -67,7 +67,7 @@ def parse_arguments():
         help="Path to the weight file (default: weight.dat)"
     )
     parser.add_argument(
-        "--same_molecules",
+        "--same_molecule",
         action="store_true",
         help="one molecule type only"
     )
@@ -87,7 +87,7 @@ def main():
     linear_fit     = args.linear_fit
     file_solution  = args.file_solution
     file_weight    = args.file_weight
-    same_molecules = args.same_molecules
+    same_molecule = args.same_molecule
 
     if weight_forces > 0.0001:
         train_forces = True
@@ -98,16 +98,16 @@ def main():
         logging.error(f'file xyzf not found: {file_xyzf}')
         return
     logging.info('Starting to read xyzf file and generate A and b matrices')
-    A_matrix, b_matrix, column_id_of, label_energy_forces, n_atom = read_xyzf_compute_A_matrix(file_xyzf_path, n_type_max, rcut, same_molecules=same_molecules, train_forces=train_forces)
+    a_matrix, b_matrix, column_id_of, label_energy_forces, n_atom = read_xyzf_compute_a_matrix(file_xyzf_path, n_type_max, rcut, same_molecule=same_molecule, train_forces=train_forces)
 
     logging.info('Filtering A matrix, remove column with all zero values')
-    remaining_cols = np.where(~np.all(A_matrix == 0, axis=0))[0]
-    filtered_A_matrix = A_matrix[:, remaining_cols]
+    remaining_cols = np.where(~np.all(a_matrix == 0, axis=0))[0]
+    filtered_a_matrix = a_matrix[:, remaining_cols]
     inv_column_id_of = {v: k for k, v in column_id_of.items()}
     symbols_remaining_cols = [inv_column_id_of[val] for val in remaining_cols]
     print (remaining_cols)
     print (symbols_remaining_cols)
-    print ("Shapes of matrix A and b:", filtered_A_matrix.shape, b_matrix.shape)
+    print ("Shapes of matrix A and b:", filtered_a_matrix.shape, b_matrix.shape)
     
     if os.path.isfile(file_weight):
         weights = np.loadtxt(file_weight)
@@ -119,12 +119,16 @@ def main():
 
     if linear_fit:
         logging.info('Performing constrained linear fitting')
-        x = lstsq_solver_linear(filtered_A_matrix, b_matrix, weights, symbols_remaining_cols, label_energy_forces)
+        x = lstsq_solver_linear(filtered_a_matrix, b_matrix, weights, symbols_remaining_cols, label_energy_forces)
         direct=False
     else:
         logging.info('Performing nonlinear fitting')
-        x = lstsq_solver_nonlinear(filtered_A_matrix, b_matrix, weights, symbols_remaining_cols, label_energy_forces)
+        x = lstsq_solver_nonlinear(filtered_a_matrix, b_matrix, weights, symbols_remaining_cols, label_energy_forces)
         direct=True
+
+    np.savetxt("x.dat", x)
+
+
     logging.info('Printing out pair styles for LAMMPS')
     print_epsilon_sigma(x, symbols_remaining_cols, direct=direct)
 
@@ -135,7 +139,7 @@ def main():
         nE = len(x) - (len(part_A) + len(part_B))
         part_E = np.zeros(nE)
         x0 = np.concatenate([part_A, part_B, part_E])
-        Ax = filtered_A_matrix @ x0
+        Ax = filtered_a_matrix @ x0
         np.savetxt("Ax.dat", Ax)
 
 if __name__ == '__main__':

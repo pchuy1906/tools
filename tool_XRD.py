@@ -5,9 +5,9 @@ import math
 import argparse
 parser = argparse.ArgumentParser(description='xyz_2_lammps for SHOCK')
 # Arguments supported by the code.
-parser.add_argument("--lam",       type=float,   default=1.541838, help='lambda')
+parser.add_argument("--_lambda",       type=float,   default=1.541838, help='_lambda')
 args        = parser.parse_args()
-lam = args.lam
+_lambda = args._lambda
 
 pi = math.pi
 
@@ -19,7 +19,7 @@ twoThe = data[:,1]*pi/180.0
 intensity = data[:,2]
 intensity = intensity/np.max(intensity)
 
-q = (4*pi/lam) * np.sin(twoThe/2.0)
+q = (4*pi/_lambda) * np.sin(twoThe/2.0)
 
 print (len(q))
 combined_array = np.column_stack((q,intensity))

@@ -9,12 +9,12 @@ fi
 
 
 while read line ; do
-    JOBID=`echo $line | awk '{print $1}'`
-    echo $JOBID
-    scancel $JOBID
-    bkill $JOBID
+    #JOBID=`echo $line | awk '{print $1}'`
+    #echo $JOBID
+    #scancel $JOBID
+    #bkill $JOBID
 
-    JOBID=`echo $line | awk '{print $4}'`
+    JOBID=`echo $line | awk '{print $1}'`
     echo $JOBID
     scancel $JOBID
     bkill $JOBID

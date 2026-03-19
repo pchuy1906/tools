@@ -16,5 +16,6 @@ with open(filename, 'r') as file:
             or "condensed_RDX_ambient" in line
             or "condensed_TATB_ambient" in line
             or "condensed_FOX7_ambient" in line
+            or "condensed_ambient_HN3" in line
         ):
             print(f"{idx}")
