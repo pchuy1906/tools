@@ -10,4 +10,11 @@ fi
 file="$1"
 fileJOB="$2"
 
-JOBID=`tail -1 ${fileJOB} | awk '{print $4}'` ; scancel  $JOBID ; sed -i 's/pdebug/pbatch/g' $file ; sbatch  $file  &> $fileJOB
+machine=`hostname`
+
+if [[ "$machine" == *"tuolumne"* ]]; then
+    JOBID=`tail -1 ${fileJOB} | awk '{print $1}'` ; scancel  $JOBID ; sed -i 's/pdebug/pbatch/g' $file ; sbatch  $file  &> $fileJOB
+elif [[ "$machine" == *"dane"* ]]; then
+    JOBID=`tail -1 ${fileJOB} | awk '{print $4}'` ; scancel  $JOBID ; sed -i 's/pdebug/pbatch/g' $file ; sbatch  $file  &> $fileJOB
+fi
+

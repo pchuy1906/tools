@@ -15,7 +15,7 @@ import argparse
 parser = argparse.ArgumentParser(description='setup DFTB input for file_xyz')
 # Arguments supported by the code.
 parser.add_argument("--file_xyz",                          default='file.xyz',   help='file_xyz format xyz')
-parser.add_argument("--cell_option",                       default='cell_3',     help='cell_option = "NON_ORTHO", "cell_3", or "cell_9" ')
+parser.add_argument("--cell_option",                       default='cell_3',     help='cell_option = "NON_ORTHO/cell_3/cell_9/None" ')
 # Driver
 parser.add_argument("--calc_type",                         default="sp",         help='sp, opt, nvt')
 parser.add_argument("--mdTemp",                type=float, default=300,          help='MD temperature')
@@ -231,6 +231,8 @@ while True:
         cell_9[0] = cell_3[0]
         cell_9[4] = cell_3[1]
         cell_9[8] = cell_3[2]
+    elif (cell_option == "None"):
+        cell_9 = [200.0, 0, 0,  0, 200, 0,  0, 0, 200]
     else:
         print ("Not implemented yet!")
         exit()
@@ -267,7 +269,7 @@ while True:
 
     if Kpoint is None:
         Kpoints = KP(cell_9, Kresol)
-        print (type(Kpoints))
+        #print (type(Kpoints))
     else:
         Kpoints = Kpoint
     write_dftb_input(method, calc_type, eTemp, mdTemp, SKF, ChIMES_params_file, PolyRep, Kpoints, syms, spdf, dispersion)

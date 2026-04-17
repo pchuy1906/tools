@@ -1,9 +1,6 @@
 import sys
 import numpy as np
 
-file_lmp_log="log.lammps"
-
-
 def find_units(path):
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -115,16 +112,20 @@ def load_block_to_array(file_path, line_start, line_end):
     except Exception as e:
         print("Unexpected error:", e)
 
-lmp_units = find_units(file_lmp_log)
-
-line_start, printed_quantities = find_printed_quantities(file_lmp_log)
-
-line_end = find_line_end(file_lmp_log)
-
-
-print (line_start, line_end)
-
-data = load_block_to_array(file_lmp_log, line_start, line_end)
+try:
+    file_lmp_log="log.lammps"
+    lmp_units = find_units(file_lmp_log)
+    line_start, printed_quantities = find_printed_quantities(file_lmp_log)
+    line_end = find_line_end(file_lmp_log)
+    print (line_start, line_end)
+    data = load_block_to_array(file_lmp_log, line_start, line_end)
+except:
+    file_lmp_log="lammps.out"
+    lmp_units = find_units(file_lmp_log)
+    line_start, printed_quantities = find_printed_quantities(file_lmp_log)
+    line_end = find_line_end(file_lmp_log)
+    print (line_start, line_end)
+    data = load_block_to_array(file_lmp_log, line_start, line_end)
 
 x_quantity = sys.argv[1]
 
@@ -134,11 +135,15 @@ if x_quantity in printed_quantities:
     idx = printed_quantities.index(x_quantity)
 else:
     raise ValueError(f"{x_quantity} not found in printed_quantity")
+x = data[:,idx]
 
-f_convert_press = 1.0
+f_press_to_GPa = 1.0
+f_time_to_ps = 1.0
 if lmp_units=="real":
-    f_convert_press = 0.000101325
+    f_press_to_GPa = 0.000101325
+    f_time_to_ps = 0.001
 keys_press = ["Px", "Py", "Pz", "Press"]
+keys_time = ["Time"]
 
 for i in range(len(printed_quantities)):
     quantity = printed_quantities[i]
@@ -146,9 +151,15 @@ for i in range(len(printed_quantities)):
 
     f_convert = 1.0
 
+    # convert Press to GPa
     has_press = any(t in quantity for t in keys_press)
     if has_press:
-        f_convert = f_convert_press
+        f_convert = f_press_to_GPa
+
+    # convert Time to ps
+    has_time = any(t in quantity for t in keys_time)
+    if has_time:
+        f_convert = f_time_to_ps
 
     y = data[:,i] * f_convert
     print(file_name)
