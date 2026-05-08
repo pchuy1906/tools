@@ -439,6 +439,7 @@ def read_POSCAR(file_POSCAR):
     f  = open(file_POSCAR ,"r")
     tmp = f.readline()
     tmp = f.readline()
+    scale = float(tmp)
 
     unitcell = np.zeros(shape=(3,3))
     tmp = f.readline().split()
@@ -448,6 +449,7 @@ def read_POSCAR(file_POSCAR):
     tmp = f.readline().split()
     unitcell[2,:] = tmp
 
+    unitcell *= scale
     tmp = f.readline().split()
     atomNameList = [tmp[i] for i in range(len(tmp))]
 
@@ -471,7 +473,7 @@ def read_POSCAR(file_POSCAR):
     if xyztype=="direct" or xyztype=="Direct":
         Axyz = np.dot(xyz, unitcell)
     elif xyztype=="Cartesian":
-        Axyz = xyz
+        Axyz = xyz * scale
     else:
         print ("unknown option xyztype", xyztype)
         exit()

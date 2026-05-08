@@ -9,6 +9,10 @@ import numpy as np
 import glob
 from pathlib import Path
 
+from ase.neighborlist import neighbor_list
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import connected_components
+
 pseudo_path = "/usr/workspace/pham20/codes/rzwhippet/VASP_potpaw_PBE"
 
 gpa_2_atm = 9869.2327
@@ -39,14 +43,51 @@ elif "rzwhippet" in machine:
                "etc/lmp/exe/lmp_mpi_chimes")
     workflow_type = "SLURM"
     bank = "ecopper"
-    num_nodes = 1
+    num_nodes = 3
     cpus_per_task = 112
-    max_allow_nodes = 20
+    max_allow_nodes = 18
     stime = "04:00:00"
     queue = "pdebug"
 else:
     raise ValueError(f"{machine} is unknown")
 nmpi = num_nodes * cpus_per_task
+
+
+
+def extract_and_save_top_molecules(poscar_path, cutoff=1.6, num_mols=5):
+    """
+    Reads a POSCAR, identifies molecules by distance, and saves the
+    largest ones into individual 'VASP_n' folders.
+    """
+    # 1. Read the system
+    atoms = read(poscar_path)
+
+    # 2. Build connectivity and find molecules
+    i, j = neighbor_list('ij', atoms, cutoff=cutoff)
+    graph = csr_matrix((np.ones(len(i)), (i, j)), shape=(len(atoms), len(atoms)))
+    n_components, labels = connected_components(graph)
+
+    # 3. Create ASE objects for each molecule
+    all_mols = [atoms[np.where(labels == m_id)[0]] for m_id in range(n_components)]
+
+    # 4. Filter by atom count range (3 to 24) then sort
+    filtered_mols = [mol for mol in all_mols if 3 <= len(mol) <= 29]
+
+    if len(filtered_mols) < num_mols:
+        num_mols_value = len(filtered_mols)
+    else:
+        num_mols_value = num_mols
+
+    top_mols = sorted(filtered_mols, key=len, reverse=True)[:num_mols_value]
+
+    # 5. Export to folders
+    for idx, mol in enumerate(top_mols, start=1):
+        folder_name = f"VASP_{idx}"
+        os.makedirs(folder_name, exist_ok=True)
+        write(os.path.join(folder_name, 'POSCAR'), mol, format='vasp')
+        print(f"Saved {mol.get_chemical_formula()} to {folder_name}/POSCAR")
+
+    return num_mols_value
 
 
 
@@ -84,7 +125,7 @@ def copy_md_folders(original_dir):
 
 
 
-def write_xyzf(file_VASP_OUTCAR="OUTCAR", file_VASP_POSCAR="POSCAR", cell_type="NON_ORTHO", export_stress=True):
+def write_xyzf(file_VASP_OUTCAR="OUTCAR", file_VASP_POSCAR="POSCAR", cell_type="NON_ORTHO", export_stress=True, path="./"):
 
     # parameters
     eV2kcalmol=23.061
@@ -92,9 +133,7 @@ def write_xyzf(file_VASP_OUTCAR="OUTCAR", file_VASP_POSCAR="POSCAR", cell_type="
     Ang2Bohr=1.889725989
     kB2GPa=0.1
     
-    #print ("***************************************")
-    #print ("reading file POSCAR:", file_VASP_POSCAR)
-    f = open(file_VASP_POSCAR, 'rt')
+    f = open(f"{path}/{file_VASP_POSCAR}", 'rt')
     readPOSCAR = True
     while readPOSCAR:
         for i in range(5):
@@ -119,9 +158,7 @@ def write_xyzf(file_VASP_OUTCAR="OUTCAR", file_VASP_POSCAR="POSCAR", cell_type="
     xyz = np.zeros(shape=(natom,3))
     fxyz = np.zeros(shape=(natom,3))
     
-    #print ("***************************************")
-    #print ("reading file OUTCAR:", file_VASP_OUTCAR)
-    f = open(file_VASP_OUTCAR, 'rt')
+    f = open(f"{path}/{file_VASP_OUTCAR}", 'rt')
     while True:
         line = f.readline()
         if line == '': break
@@ -181,7 +218,7 @@ def write_xyzf(file_VASP_OUTCAR="OUTCAR", file_VASP_POSCAR="POSCAR", cell_type="
             energy *= eV2kcalmol
     f.close()
     
-    f2 = open("VASP_2_ChIMES.xyzf", "w")
+    f2 = open(f"{path}/VASP_2_ChIMES.xyzf", "w")
     
     f2.write("%1d\n" %( natom ))
     
@@ -212,8 +249,9 @@ def write_xyzf(file_VASP_OUTCAR="OUTCAR", file_VASP_POSCAR="POSCAR", cell_type="
 
 
 
-def write_job_vasp(filename="file_job_vasp"):
-    content = f"""#!/bin/sh
+def write_job_vasp(filename="file_job_vasp", multiple_folder=False):
+    if not multiple_folder:
+        content = f"""#!/bin/sh
 
 #SBATCH -N {num_nodes}
 #SBATCH -J dft
@@ -225,22 +263,49 @@ def write_job_vasp(filename="file_job_vasp"):
 nnodes={num_nodes}
 nMPI={nmpi}
 
-mv INCAR_PBE INCAR
-srun -N $nnodes -n $nMPI {exe_vasp} > out_PBE
+#mv INCAR_PBE INCAR
+#srun -N $nnodes -n $nMPI {exe_vasp} > out_PBE
 
 mv INCAR_SCAN INCAR
 srun -N $nnodes -n $nMPI {exe_vasp} > out_SCAN
 
 touch job_done_vasp"""
+    else:
+        content = f"""#!/bin/sh
+
+#SBATCH -N {num_nodes}
+#SBATCH -J dft
+#SBATCH -t {stime}
+#SBATCH -p {queue}
+#SBATCH -A {bank}
+#SBATCH --exclusive
+
+nnodes={num_nodes}
+nMPI={nmpi}
+
+for fold in $(ls -1vd VASP_*) ; do
+    cd $fold
+        mv INCAR_PBE INCAR
+        srun -N $nnodes -n $nMPI {exe_vasp} > out_PBE
+        
+        mv INCAR_SCAN INCAR
+        srun -N $nnodes -n $nMPI {exe_vasp} > out_SCAN
+    cd ../
+done
+
+touch job_done_vasp"""
+
 
     with open(filename, "w") as f:
         f.write(content)
 
 
-def write_poscar(file_dump="../dump_xyz_vxyz"):
+def write_poscar(atom_types_global, file_dump="../dump_xyz_vxyz"):
     atoms = read(file_dump, format='lammps-dump-text', index='-1')
     atom_types = atoms.get_array('type')
-    mapping = {1: 'C', 2: 'H', 3: 'N', 4: 'O'}
+    mapping = {i: name for i, name in enumerate(atom_types_global, 1)}
+    #mapping = {1: 'C', 2: 'H', 3: 'N', 4: 'O'}
+    #mapping = {1: 'C', 2: 'Cl', 3: 'F', 4: 'H', 5: 'N', 6: 'O'}
     symbols = [mapping[t] for t in atom_types]
     atoms.set_chemical_symbols(symbols)
     sorted_atoms = sort(atoms)
@@ -253,27 +318,27 @@ def get_poscar_elements(file_poscar):
         elements = lines[5].split()
         return elements
 
-def write_potcar(file_poscar):
+def write_potcar(file_poscar, path="./"):
     elements = get_poscar_elements(file_poscar)
-    with open("POTCAR", "wb") as pot_out:
+    with open(f"{path}/POTCAR", "wb") as pot_out:
         for element in elements:
             path = f"{pseudo_path}/{element}/POTCAR"
             with open(path, "rb") as pot_in:
                 pot_out.write(pot_in.read())
 
 
-def write_kpoints():
+def write_kpoints(path="./"):
     """Writes a Gamma-point KPOINTS file."""
     content = """EA
 0
 Gamma
 1 1 1"""
-    with open("KPOINTS", "w") as f:
+    with open(f"{path}/KPOINTS", "w") as f:
         f.write(content)
 
 
 
-def write_incar(functional_type="PBE"):
+def write_incar(functional_type="PBE", path="./", use_conjugate=False):
     """
     Writes a VASP INCAR file based on the functional type ('PBE' or 'SCAN').
     """
@@ -332,11 +397,19 @@ def write_incar(functional_type="PBE"):
   LCHARG  = .FALSE.
 
 LASPH = .TRUE.
-ALGO  = Conjugate
 NPAR = 9
 ISYM=-1"""
 
-    with open(settings['filename'], "w") as f:
+    extra_content = f"""
+
+ALGO  = Conjugate
+"""
+
+    if use_conjugate:
+        content += extra_content
+
+    incar_full = f"{path}/{settings['filename']}"
+    with open(incar_full, "w") as f:
         f.write(content)
 
 
@@ -385,7 +458,8 @@ def get_total_nodes():
     return total_nodes
 
 
-def write_lammps_input_md(n_md_step=100, temp=3000, n_print=5, file_lmp_input="in.lammps"):
+def write_lammps_input_md(atom_types, n_md_step=100, temp=3000, n_print=5, file_lmp_input="in.lammps"):
+    atom_types_str = " ".join(atom_types)
     # Using double braces {{ }} for LAMMPS variables so Python doesn't try to fill them
     content = f"""variable Tini   equal {temp}
 variable nprint equal {n_print}
@@ -409,7 +483,8 @@ fix              1 all nvt temp ${{Tini}} ${{Tini}} 100
 thermo_style     custom time step temp etotal pe ke press vol density enthalpy pxx pyy pzz lx ly lz
 thermo_modify    format float %20.15g flush yes
 thermo           ${{nprint}}
-dump             dump_1 all custom ${{nprint}} dump_xyz_vxyz id type x y z vx vy vz
+dump             dump_1 all custom ${{nprint}} dump_xyz_vxyz id type element x y z vx vy vz
+dump_modify      dump_1 element {atom_types_str}
 atom_modify      sort 0 0.0
 
 #restart          ${{nprint}} restart.a restart.b
@@ -421,7 +496,8 @@ run              {n_md_step}
         f.write(content)
 
 
-def write_lammps_input_vcopt(p_gpa=0, file_lmp_input="in.lammps"):
+def write_lammps_input_vcopt(atom_types, p_gpa=0, file_lmp_input="in.lammps", nstep=100000):
+    atom_types_str = " ".join(atom_types)
     p_atm = p_gpa * gpa_2_atm
     content = f"""variable p0 equal {p_atm}
 
@@ -445,9 +521,9 @@ thermo           1
 atom_modify      sort 0 0.0
 
 fix              1 all box/relax aniso ${{p0}}
-minimize         1.0e-6 1.0e-6 100000 100000
+minimize         1.0e-6 1.0e-6 {nstep} {nstep}
 
-write_dump       all custom dump_xyz_vxyz id type x y z vx vy vz
+write_dump       all custom dump_xyz_vxyz id type element x y z vx vy vz modify element {atom_types_str}
 """
     with open(file_lmp_input, "w") as f:
         f.write(content)
@@ -465,6 +541,9 @@ def get_p_t(folder):
     elif "Temp" in folder:
         t = folder.split('_')[-1]
         p = 0.0
+    elif "temp" in folder:
+        t = folder.split('_')[-1]
+        p = 0.0
     elif "vcopt" in folder:
         p = folder.split('_')[-2]
         t = 0.0
@@ -472,9 +551,11 @@ def get_p_t(folder):
         raise ValueError(f"Unexpected folder format: '{folder}'")
     return float(p), float(t)
 
-def clean_vasp():
-    list_files = ["CHG", "CHGCAR", "DOSCAR", "EIGENVAL", "IBZKPT", "OSZICAR", "PCDAT", "vasprun.xml", "WAVECAR", "XDATCAR"]
-    [Path(f).unlink(missing_ok=True) for f in list_files]
-    for f in glob.glob("slurm*"):
+
+def clean_vasp(path="./"):
+    list_files = ["CHG", "CHGCAR", "DOSCAR", "EIGENVAL", "IBZKPT", "OSZICAR", "PCDAT", "vasprun.xml", "WAVECAR", "XDATCAR", "REPORT"]
+    for f in list_files:
+        (Path(path) / f).unlink(missing_ok=True)
+    for f in glob.glob(os.path.join(path, "slurm*")):
         os.remove(f)
 
