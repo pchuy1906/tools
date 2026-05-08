@@ -1,16 +1,6 @@
 import numpy as np
 import os
 
-element_dict_spdf = {\
-'C' : "p",\
-'H' : "s",\
-'N' : "p",\
-'O' : "p",\
-'P' : "p",\
-'Al' : "p",\
-'Fe' : "d" \
-}
-
 import argparse
 parser = argparse.ArgumentParser(description='setup DFTB input for file_xyz')
 # Arguments supported by the code.
@@ -250,10 +240,7 @@ while True:
     # print to dftb input file
     syms, counts_syms = np.unique(atomList, return_counts=True)
     asym_list = ' '.join(syms)
-    spdf = []
-    for asym in syms:
-        spdf.append(element_dict_spdf.get(asym))
-    #print (syms, spdf)
+    spdf = spdf_types
 
     f2 = open("dftb.gen", "w")
     f2.write("%-d %4s\n" %( natom, " S" ))

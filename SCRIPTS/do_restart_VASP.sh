@@ -12,17 +12,18 @@ mkdir ${new_fold}
 cat > job_${nnext}.sh << EOF
 #!/bin/sh
 
-#SBATCH -N 1
-#SBATCH -J DFT-3
-#SBATCH -t 24:00:00
-#SBATCH -p pbatch
-#SBATCH -A guests
+#SBATCH -N 3
+#SBATCH -J eos
+#SBATCH -t 04:00:00
+#SBATCH -p pdebug
+#SBATCH -A ecopper
 #SBATCH --exclusive
 
-nnodes=1
-nMPI=112
+nnodes=3
+nMPI=336
 
-POTCARpool="/usr/gapps/emc-vasp/pseudopotentials/potpaw_PBE.54"
+#POTCARpool="/usr/gapps/emc-vasp/pseudopotentials/potpaw_PBE.54"
+POTCARpool="/usr/workspace/pham20/codes/rzwhippet/VASP_potpaw_PBE"
 
 cd ${old_fold}
     cp INCAR KPOINTS POTCAR ../${new_fold}
