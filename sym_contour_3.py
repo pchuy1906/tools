@@ -82,13 +82,16 @@ def main():
     cf = plt.contourf(Y, X, fyx, levels=v, cmap=cm.jet, vmin=0.0, vmax=maxval)
     cbar = plt.colorbar(cf, shrink=1.00, ticks=v2)
     cbar.set_ticklabels([f"{tick:.2f}" for tick in v2])
+    cbar.ax.tick_params(labelsize=36, length=8)
 
     plt.xlim(args.xlim[0], args.xlim[1])
     xtick_positions = np.arange(args.xlim[0], args.xlim[1], 4) + 1
-    plt.xticks(xtick_positions)
+    plt.xticks(xtick_positions, fontsize=30)
+    plt.yticks(fontsize=30)
+    plt.tick_params(axis='both', labelsize=30, length=8, width=2)
     plt.ylim(y[0], y[-1])
-    plt.xlabel(r'$z$ $(\AA)$')
-    plt.ylabel(r'$q$')
+    plt.xlabel(r'$z$ $(\AA)$', fontsize=36)
+    plt.ylabel(r'$q$', fontsize=36)
 
     # Output file naming
     file_base = args.file_input.split('.')[0]

@@ -1,0 +1,5 @@
+ usage: ./a.out arg1_xyzfile a b c
+
+ The XYZfile is ../geo_end.xyz                                    
+ Read the XYZ file:
+ the total number of frame is         7488
