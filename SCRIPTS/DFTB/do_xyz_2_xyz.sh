@@ -8,3 +8,5 @@ fileout="traj.xyz"
 cp $fileXYZ $fileout
 cell=`tail -3 $fileGEN | xargs`
 sed -i '/MD/c '"$cell"' ' $fileout
+sed -i '/Step/c '"$cell"' ' $fileout
+
