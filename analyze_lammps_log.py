@@ -39,33 +39,40 @@ def find_printed_quantities(path):
         print(f"An error occurred: {e}")
 
 
-def find_line_end(path):
+def find_line_end(path, job_done=True):
     last_line_number = None
     last_line = None
 
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            for line_number, line in enumerate(f, start=1):
-                last_line_number = line_number
-                last_line = line
-                if "Loop" in line:  # case-sensitive
-                    loop_line_number = line_number
-                    loop_line = line
-
-        if last_line_number is None:
-            # Empty file
-            print("File is empty.")
-            return None
-
-        if "loop_line_number" in locals():
-            print("\nline end::")
-            print(f"{loop_line.rstrip()}")
-            return loop_line_number - 1
+        if job_done:
+            with open(path, "r", encoding="utf-8") as f:
+                for line_number, line in enumerate(f, start=1):
+                    last_line_number = line_number
+                    last_line = line
+                    if "Loop" in line:  # case-sensitive
+                        loop_line_number = line_number
+                        loop_line = line
+    
+            if last_line_number is None:
+                # Empty file
+                print("File is empty.")
+                return None
+    
+            if "loop_line_number" in locals():
+                print("\nline end::")
+                print(f"{loop_line.rstrip()}")
+                return loop_line_number - 1
+            else:
+                # No 'Loop' found, return last line number
+                print("No line containing 'Loop' was found.")
+                print("Returning the last line number of the file.")
+                print(f"Last line: {last_line.rstrip()}")
+                return last_line_number-2
         else:
-            # No 'Loop' found, return last line number
-            print("No line containing 'Loop' was found.")
-            print("Returning the last line number of the file.")
-            print(f"Last line: {last_line.rstrip()}")
+            with open(path, "r", encoding="utf-8") as f:
+                for line_number, line in enumerate(f, start=1):
+                    last_line_number = line_number
+                    last_line = line
             return last_line_number-2
 
     except FileNotFoundError:
@@ -117,14 +124,20 @@ try:
     lmp_units = find_units(file_lmp_log)
     line_start, printed_quantities = find_printed_quantities(file_lmp_log)
     line_end = find_line_end(file_lmp_log)
-    print (line_start, line_end)
+    print ("AAA", line_start, line_end)
+    if line_end < line_start:
+        line_end = find_line_end(file_lmp_log, job_done=False)
+        print ("AAA", line_start, line_end)
     data = load_block_to_array(file_lmp_log, line_start, line_end)
 except:
     file_lmp_log="lammps.out"
     lmp_units = find_units(file_lmp_log)
     line_start, printed_quantities = find_printed_quantities(file_lmp_log)
     line_end = find_line_end(file_lmp_log)
-    print (line_start, line_end)
+    print ("AAA", line_start, line_end)
+    if line_end < line_start:
+        line_end = find_line_end(file_lmp_log, job_done=False)
+        print ("AAA", line_start, line_end)
     data = load_block_to_array(file_lmp_log, line_start, line_end)
 
 x_quantity = sys.argv[1]

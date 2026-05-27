@@ -110,6 +110,8 @@ while True:
     tmp  = f.readline().split()
     AType = []
     ANumber = []
+    print(nAtomType)
+    print(tmp)
     for j in range(nAtomType):
         AType.append(tmp[2*j])
         ANumber.append(int(tmp[2*j+1]))
@@ -135,6 +137,10 @@ while True:
                 f3.write("1.0\n")
                 f3.write("1.0\n")
                 f3.write("1.0\n")
+        else:
+            f3.write("1.0\n")
+            f3.write("1.0\n")
+            f3.write("1.0\n")
 
     if (id_frame < nCondensed):
         f2.write("dia_stress_" +mole_name+"\n")

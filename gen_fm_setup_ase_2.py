@@ -72,6 +72,8 @@ parser.add_argument('--atom_types', nargs='+')
 parser.add_argument('--polynomial_orders', nargs='+', type=int)
 parser.add_argument('--cutoff_distances', nargs='+', type=float)
 parser.add_argument('--delta_penalty', default=0.01,type=float)
+parser.add_argument("--fcut", default='TERSOFF 0.95', help='TERSOFF 0.95/CUBIC/TERSOFF 0.5')
+parser.add_argument("--setup_cutoffs_co",                   default=False, action="store_true", help="setup for co")
 
 
 args    = parser.parse_args()
@@ -80,6 +82,8 @@ atom_types        = args.atom_types
 polynomial_orders = args.polynomial_orders
 cutoff_distances  = args.cutoff_distances
 delta_penalty     = args.delta_penalty
+fcut              = args.fcut
+setup_cutoffs_co  = args.setup_cutoffs_co
 
 
 # print out input
@@ -296,11 +300,18 @@ def write_input(file_xyz, atom_types, rmin, polynomial_orders, cutoff_distances)
             f2.write("%d %d %d \n" %(0,0,0))
 
     f2.write("\n")
-    f2.write("SPECIAL 3B S_MAXIM: ALL %7.3f\n" %cutoff_distances[1])
+    if setup_cutoffs_co:
+        f2.write("SPECIAL 3B S_MAXIM: SPECIFIC 4\n")
+        f2.write("CCCCCC CC CC CC 4.40000 4.40000 4.40000\n")
+        f2.write("CCCOCO CC CO CO 4.40000 4.00000 4.00000\n")
+        f2.write("COCOOO CO CO OO 4.00000 4.00000 6.50000\n")
+        f2.write("OOOOOO OO OO OO 6.50000 6.50000 6.50000\n")
+    else:
+        f2.write("SPECIAL 3B S_MAXIM: ALL %7.3f\n" %cutoff_distances[1])
     f2.write("SPECIAL 4B S_MAXIM: ALL %7.3f\n" %cutoff_distances[2])
     f2.write("\n")
     f2.write("# FCUTTYP #\n")
-    f2.write("TERSOFF 0.95\n")
+    f2.write(f"{fcut}\n")
     f2.write("\n")
     f2.write("# ENDFILE #\n")
 
