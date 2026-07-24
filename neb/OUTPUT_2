@@ -1,0 +1,5 @@
+/p/lustre2/pham20/MYCONDA/envs/chimes_python/lib/python3.11/site-packages/ase/mep/neb.py:329: UserWarning: The default method has changed from 'aseneb' to 'improvedtangent'. The 'aseneb' method is an unpublished, custom implementation that is not recommended as it frequently results in very poor bands. Please explicitly set method='improvedtangent' to silence this warning, or set method='aseneb' if you strictly require the old behavior (results may vary). See: https://gitlab.com/ase/ase/-/merge_requests/3952
+  warnings.warn(
+0.7353121739645303 0.7353121739645303
+0.7353121739645303 0.7353121739645303
+0.019258453438336758
