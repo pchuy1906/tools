@@ -13,8 +13,11 @@ from ase.neighborlist import neighbor_list
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 
-#pseudo_path = "/usr/workspace/pham20/codes/rzwhippet/VASP_potpaw_PBE"
-pseudo_path = "/p/lustre1/pham20/ChIMES/ChIMES_Pu/POTCARs"
+pseudo_path = "/usr/workspace/pham20/codes/rzwhippet/VASP_potpaw_PBE"
+exe_vasp_0 = "/usr/gapps/emc-vasp/vasp.6.3.0_vtst/bin/vasp_gam"
+#pseudo_path = "/p/lustre1/pham20/ChIMES/ChIMES_Pu/POTCARs"
+#exe_vasp_0 = "/usr/gapps/emc-vasp/vasp5.4-op/build/ncl/vasp"
+
 
 gpa_2_atm = 9869.2327
 
@@ -39,15 +42,14 @@ elif "dane" in machine:
     cpus_per_task = 112
     max_allow_nodes = 8
 elif "rzwhippet" in machine:
-    #exe_vasp = "/usr/gapps/emc-vasp/vasp.6.3.0_vtst/bin/vasp_gam"
-    exe_vasp = "/usr/gapps/emc-vasp/vasp5.4-op/build/ncl/vasp"
+    exe_vasp = exe_vasp_0
     exe_lmp = ("/usr/workspace/pham20/codes/rzwhippet/chimes_calculator_2026_04_17/"
                "etc/lmp/exe/lmp_mpi_chimes")
     workflow_type = "SLURM"
     bank = "ecopper"
-    num_nodes = 6
+    num_nodes = 3
     cpus_per_task = 112
-    max_allow_nodes = 120
+    max_allow_nodes = 600
     stime = "04:00:00"
     queue = "pdebug"
 else:
