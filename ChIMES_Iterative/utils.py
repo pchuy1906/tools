@@ -41,17 +41,23 @@ elif "dane" in machine:
     num_nodes = 2
     cpus_per_task = 112
     max_allow_nodes = 8
-elif "rzwhippet" in machine:
+elif "rzwhippet" in machine or "rzhound" in machine:
     exe_vasp = exe_vasp_0
     exe_lmp = ("/usr/workspace/pham20/codes/rzwhippet/chimes_calculator_2026_04_17/"
                "etc/lmp/exe/lmp_mpi_chimes")
     workflow_type = "SLURM"
-    bank = "ecopper"
-    num_nodes = 3
     cpus_per_task = 112
-    max_allow_nodes = 600
-    stime = "04:00:00"
+
+    bank = "ecopper"
     queue = "pdebug"
+    stime = "04:00:00"
+
+    #bank = "wbronze"
+    #queue = "pbatch"
+    #stime = "02:00:00"
+
+    num_nodes = 6
+    max_allow_nodes = 48
 else:
     raise ValueError(f"{machine} is unknown")
 nmpi = num_nodes * cpus_per_task
@@ -515,6 +521,9 @@ ALGO  = Conjugate
         content += extra_content
 
     incar_full = f"{path}/{settings['filename']}"
+    #os.makedirs(os.path.dirname(incar_full), exist_ok=True)
+    #print(incar_full)
+    #print(content)
     with open(incar_full, "w") as f:
         f.write(content)
 
@@ -604,7 +613,7 @@ run              {n_md_step}
         f.write(content)
 
 
-def write_lammps_input_vcopt(atom_types, p_gpa=0, file_lmp_input="in.lammps", nstep=100000):
+def write_lammps_input_vcopt(atom_types, p_gpa=0, file_lmp_input="in.lammps", nstep=100000, cell_relax=True):
     atom_types_str = " ".join(atom_types)
     p_atm = p_gpa * gpa_2_atm
     content = f"""variable p0 equal {p_atm}
@@ -627,12 +636,20 @@ thermo_style     custom time step temp etotal pe ke press vol density enthalpy p
 thermo_modify    format float %20.15g flush yes
 thermo           1
 atom_modify      sort 0 0.0
-
+"""
+    if cell_relax:
+        extra_content = f"""
 fix              1 all box/relax aniso ${{p0}}
+"""
+
+        content += extra_content
+
+    extra_content = f"""
 minimize         1.0e-6 1.0e-6 {nstep} {nstep}
 
 write_dump       all custom dump_xyz_vxyz id type element x y z vx vy vz modify element {atom_types_str}
 """
+    content += extra_content
     with open(file_lmp_input, "w") as f:
         f.write(content)
 
@@ -757,7 +774,7 @@ def get_p_t(folder):
     elif "temp" in folder:
         t = folder.split('_')[-1]
         p = 0.0
-    elif "vcopt" in folder:
+    elif "vcopt" in folder or "opt" in folder:
         p = folder.split('_')[-2]
         t = 0.0
     else:
