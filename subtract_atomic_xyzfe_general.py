@@ -16,9 +16,6 @@ fit_atomic_energy  = args.fit_atomic_energy
 cell_type          = args.cell_type
 atom_type          = args.atom_type
 
-print ("-----------------------------------------------------------")
-print ("")
-print ("")
 print ("read fileXYZ:", file_xyz)
 f  = open(file_xyz ,"rt")
 

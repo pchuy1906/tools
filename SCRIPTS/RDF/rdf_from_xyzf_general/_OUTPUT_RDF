@@ -1,0 +1,21 @@
+At line 56 of file main.f90 (unit = 11, file = 'traj.xyz')
+Fortran runtime error: End of file
+
+Error termination. Backtrace:
+#0  0x1555543cf171 in ???
+#1  0x1555543cfd19 in ???
+#2  0x1555543d0521 in ???
+#3  0x1555545d812b in ???
+#4  0x1555545d0db6 in ???
+#5  0x1555545d2639 in ???
+#6  0x40199b in ???
+#7  0x4027ef in ???
+#8  0x1555538397e4 in ???
+#9  0x4011fd in ???
+#10  0xffffffffffffffff in ???
+ usage: ./a.out arg1_fe arg2_fe HISTORY optionCELL(1-orthor   2-non-orthor)
+
+ The XYZfile is traj.xyz                                          
+ Calculate RDF between O     and O    
+
+ Read the XYZ file:
