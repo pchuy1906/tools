@@ -17,7 +17,7 @@ for element in "$@" ; do
 done
 
 
-RDFcode="$HOME/tools/RDF/rdf_from_xyzf_general/"
+RDFcode="$HOME/tools/others/SCRIPTS/RDF/rdf_from_xyzf_general"
 cwd=`pwd`
 cd $RDFcode
 pwd
